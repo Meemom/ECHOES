@@ -11,33 +11,22 @@ from spotipy.oauth2 import SpotifyClientCredentials
 
 
 @dataclass
-class Spotipy:
-    """A class to interact with Spotify Web API for authentication and fetching song features.
+class SpotipyExtended(spotipy.Spotify):
+    """A class to interact with Spotify Web API for authentication and fetching song features."""
+    access_token: str  # Add access_token to the class
 
-    Instance Attributes:
-        - client_id: the unique client identifier for authenticating with the Spotify API.
-        - client_secret: the secret key used in conjunction with the client_id for API authentication.
-        - sp: An instance of the `spotipy.Spotify` class, which is used to interact with the Spotify Web API.
-    """
-
-    client_id: str
-    client_secret: str
-    sp: spotipy.Spotify
-
-    def __init__(self, client_id: str, client_secret: str) -> None:
-        """Initializes the Spotipy class with authentication credentials."""
-        self.sp = spotipy.Spotify(
-            auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-        )
+    def __init__(self, access_token: str) -> None:
+        """Initializes the Spotipy class with the access token."""
+        super().__init__(auth=access_token)
 
     def get_song_features(self, song_title: str) -> Optional[dict[str, Any]]:
         """Retrieves audio features for the given song."""
-        results = self.sp.search(q=song_title, type='track', limit=1)  # finds the first track matching the song_title
-        if not results['tracks']['items']:  # if the song does not exist
-            return None  # Song not found
+        results = self.search(q=song_title, type='track', limit=1)  # Uses self instead of self.sp
+        if not results['tracks']['items']:  # If no song is found
+            return None
 
-        track_id = results['tracks']['items'][0]['id']  # retrieve the song id
-        features = self.sp.audio_features(track_id)[0]  # retrieves audio features for the song with the track_id
+        track_id = results['tracks']['items'][0]['id']  # Retrieve the song ID
+        features = self.audio_features(track_id)[0]  # Fetch audio features
 
         return {
             'id': track_id,
@@ -74,11 +63,11 @@ class Node:
 @dataclass
 class SongRecommendationTree:
     """A decision tree for recommending songs based on audio features."""
-    sp: Spotipy
+    sp: SpotipyExtended
     root_song: str
     tree: Optional[Node]
 
-    def __init__(self, sp: Spotipy, root_song: str) -> None:
+    def __init__(self, sp: SpotipyExtended, root_song: str) -> None:
         """Initializes a decision tree with the given root_song."""
         self.sp = sp
         self.root_song = root_song
@@ -86,14 +75,14 @@ class SongRecommendationTree:
 
     def build_tree(self, song_title: str) -> Optional[Node]:
         """Constructs a decision tree by splitting based on song features."""
-        song_features = self.sp.get_song_features(song_title)
+        song_features = self.sp.get_song_features(song_title)  # Call get_song_features from SpotipyExtended
         if song_features is None:
             return None
 
         # Extract only numeric features for splitting
         features_to_split = [
             audio_feature for audio_feature, value in song_features.items()
-            if isinstance(value, (int, float)) and feature not in ['id']
+            if isinstance(value, (int, float)) and audio_feature not in ['id']
         ]
 
         root_node = Node(attribute=None, threshold=None, songs=[song_title])
@@ -101,7 +90,7 @@ class SongRecommendationTree:
         for feature in features_to_split:
             target_value = song_features[feature]
             recommended_songs = self.recommended_songs_by_feature(
-                song_id=song_features['id'], feature=feature, target_value=target_value
+                song_id=song_features['id'], feature=feature, target_value=song_features[feature]
             )
 
             if recommended_songs:
@@ -126,7 +115,11 @@ class SongRecommendationTree:
         recommended_songs = []
         for track in recommendations:
             track_id = track['id']
-            feature_value = self.sp.get_song_features(track_id)[feature]
+            feature_value = self.sp.get_song_features(track['name'])
+            if feature_value and feature in feature_value:
+                feature_value = feature_value[feature]
+            else:
+                continue  # Skip if no valid feature found
 
             if comparison == 'closest':
                 if abs(feature_value - target_value) < 0.1:
@@ -154,19 +147,21 @@ class SongRecommendationTree:
 
 if __name__ == "__main__":
     import python_ta
+
     python_ta.check_all(config={
         'max-line-length': 120,
         'disable': ['R1705', 'E9998', 'E9999']
     })
 
-    CLIENT_ID = 'your_client_id'
-    CLIENT_SECRET = 'your_client_secret'
+    ACCESS_TOKEN = ('BQBSYsmbA7HvdgwQisaw0bAhiiL_mKCzn_LH8F-Xe0tSnbI1PsoOQIKQUzefrqi5o1D6x'
+                    'S6KRAf7N0zvFcb_f83-XcZeWxR0G8TCt1Wzdm6FaaAK6-w_uJ7wd4PZ45nICZM3SmNv6Ns')
 
-    spotipy_instance = Spotipy(CLIENT_ID, CLIENT_SECRET)
+    # Use the access token for authentication
+    sp = SpotipyExtended(ACCESS_TOKEN)
 
     # start the simulation with a song
-    song = 'ARE WE STILL FRIENDS?'  # example song
-    recommendation_tree = SongRecommendationTree(spotipy_instance, song)
+    song = 'ARE WE STILL FRIENDS?'  # Example song
+    recommendation_tree = SongRecommendationTree(sp, song)  # Pass 'sp' instead of 'spotipy_instance'
 
     # print the decision tree structure
     recommendation_tree.print_tree(recommendation_tree.tree)
