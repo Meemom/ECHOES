@@ -201,8 +201,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: SpotipyExt
     This method creates a graph based on the kaggle data set and the current user's information
 
     CURRENT ERROR:
-    UnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 2511: character maps to <undefined>
-    - USE PANDAS to SAMPLE data set (because 1 million songs is TOO MANY SONGS)
+    Being rate limited because the data set is so big...
     """
     graph_so_far = Graph("current_user")
     users_so_far = set()
