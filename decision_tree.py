@@ -10,14 +10,27 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
 
-@dataclass
 class SpotipyExtended(spotipy.Spotify):
-    """A class to interact with Spotify Web API for authentication and fetching song features."""
-    access_token: str  # Add access_token to the class
+    """A class to interact with Spotify Web API for authentication and fetching song features.
 
-    def __init__(self, access_token: str) -> None:
-        """Initializes the Spotipy class with the access token."""
-        super().__init__(auth=access_token)
+    Instance Attributes:
+        - client_id:
+        - client_secret:
+    """
+    client_id: str
+    client_secret: str
+
+    def __init__(self, client_id: str, client_secret: str) -> None:
+        """Initializes the Spotipy class with the client credentials manager."""
+
+        # Set up the credentials manager to handle token fetching automatically
+        client_credentials_manager = SpotifyClientCredentials(
+            client_id=client_id,
+            client_secret=client_secret
+        )
+
+        # Initialize Spotipy with the credentials manager
+        super().__init__(client_credentials_manager=client_credentials_manager)
 
     def get_song_features(self, song_title: str) -> Optional[dict[str, Any]]:
         """Retrieves audio features for the given song."""
@@ -153,15 +166,15 @@ if __name__ == "__main__":
         'disable': ['R1705', 'E9998', 'E9999']
     })
 
-    ACCESS_TOKEN = ('BQBSYsmbA7HvdgwQisaw0bAhiiL_mKCzn_LH8F-Xe0tSnbI1PsoOQIKQUzefrqi5o1D6x'
-                    'S6KRAf7N0zvFcb_f83-XcZeWxR0G8TCt1Wzdm6FaaAK6-w_uJ7wd4PZ45nICZM3SmNv6Ns')
+    CLIENT_ID = '673544b65c924a6e9dfb24c2b2624c6e'
+    CLIENT_SECRET = '1812e2325a42479ab070a9bedfdcced9'
 
-    # Use the access token for authentication
-    sp = SpotipyExtended(ACCESS_TOKEN)
+    # Use the SpotipyExtended class with provided client_id and client_secret
+    sp = SpotipyExtended(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 
-    # start the simulation with a song
+    # Now you can use `sp` to interact with the Spotify API
     song = 'ARE WE STILL FRIENDS?'  # Example song
-    recommendation_tree = SongRecommendationTree(sp, song)  # Pass 'sp' instead of 'spotipy_instance'
+    recommendation_tree = SongRecommendationTree(sp, song)
 
-    # print the decision tree structure
+    # Print the decision tree structure
     recommendation_tree.print_tree(recommendation_tree.tree)
