@@ -2,57 +2,48 @@
 
 This module provides the functions to create a decision tree that recommends songs based on an input song.
 """
-import kagglehub
-
-path = kagglehub.dataset_download("bwandowando/spotify-songs-with-attributes-and-lyrics")
-
-print("Path to dataset files:", path)
 
 from typing import Any, Optional
+import pandas as pd
+import kagglehub
+import os
 import operator
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
+# loading the dataset
+dataset_path = ('/Users/jemimasilaen/.cache/kagglehub/datasets/bwandowando/spotify'
+                '-songs-with-attributes-and-lyrics/versions/19/songs_with_attributes_and_lyrics.csv')
+df = pd.read_csv(dataset_path)
+
 class SpotipyExtended(spotipy.Spotify):
     """A class to interact with Spotify Web API for authentication and fetching song features."""
-    auth_manager: SpotifyOAuth
+    dataset: pd.DataFrame
 
-    def __init__(self, auth_manager: SpotifyOAuth) -> None:
-        """Initializes the Spotipy class with OAuth authentication and validates the token."""
+    def __init__(self, dataset: pd.DataFrame) -> None:
+        """Initializes with the preloaded dataset."""
+        # Initialize the parent (Spotipy) class with the provided auth_manager
         super().__init__(auth_manager=auth_manager)
-        self.validate_token()
-        self.auth_manager.get_access_token()
-
-    def validate_token(self):
-        """Check if the token is valid and refresh if expired."""
-        try:
-            # Attempt to make a request to verify if the token is valid
-            self.me()  # Fetches current user's details as a quick check
-            print("Token is valid.")
-        except spotipy.exceptions.SpotifyException as e:
-            # Handle token expiration or invalid token
-            print(f"Token error: {e}")
-            # Refresh token if invalid/expired
-            token_info = self.auth_manager.refresh_access_token(self.auth_manager.get_access_token())
-            self.auth_manager.token = token_info['access_token']
-            print("Token refreshed.")
+        self.dataset = dataset
 
     def get_song_features(self, song_title: str) -> Optional[dict[str, Any]]:
-        """Retrieves audio features for the given song."""
-        results = self.search(q=song_title, type='track', limit=1)
-        if not results['tracks']['items']:
+        """Retrieves audio features for the given song from the Kaggle dataset."""
+        # find the row in the dataset that matches the given song title
+        song_data = self.dataset[self.dataset['name'].str.lower() == song_title.lower()]
+        if song_data.empty:
             return None
 
-        track_id = results['tracks']['items'][0]['id']
-        features = self.audio_features([track_id])[0]
-
-        return {
-            'id': track_id,
-            'energy': features['energy'],
-            'danceability': features['danceability'],
-            'acousticness': features['acousticness'],
-            'tempo': features['tempo']
+        song = song_data.iloc[0] # selects the first row from song_data
+        features = {
+            'id': song['id'],
+            'danceability': song['danceability'],
+            'energy': song['energy'],
+            'acousticness': song['acousticness'],
+            'tempo': song['tempo'],
+            'speechiness': song['speechiness']
         }
+
+        return features
 
 
 class Node:
@@ -61,7 +52,7 @@ class Node:
     threshold: Optional[float]  # The threshold value for splitting (e.g., energy > 0.5)
     left: Optional['Node']  # Left branch (values below threshold)
     right: Optional['Node']  # Right branch (values above threshold)
-    songs: Optional[list[str]]  # List of recommended songs (for leaf nodes)
+    songs: Optional[list[str]]
 
     def __init__(self, attribute: Optional[str] = None, threshold: Optional[float] = None,
                  songs: Optional[list[str]] = None) -> None:
@@ -74,6 +65,7 @@ class Node:
     def is_leaf(self) -> bool:
         """Checks if the node is a leaf (i.e., contains song recommendations)."""
         return bool(self.songs) and self.attribute is None
+
 
 class SongRecommendationTree:
     """A decision tree for recommending songs based on audio features."""
@@ -90,6 +82,7 @@ class SongRecommendationTree:
         """Constructs a decision tree by splitting based on song features."""
         song_features = self.sp.get_song_features(song_title)
         if song_features is None:
+            print("The given song is not found.")
             return None
 
         features_to_split = [
@@ -101,13 +94,16 @@ class SongRecommendationTree:
 
         for feature in features_to_split:
             target_value = song_features[feature]
-            recommended_songs = self.recommended_songs_by_feature(
-                song_id=song_features['id'], feature=feature, target_value=target_value
+            left_songs = self.recommended_songs_by_feature(
+                song_id=song_features['id'], feature=feature, target_value=target_value, comparison='<'
+            )
+            right_songs = self.recommended_songs_by_feature(
+                song_id=song_features['id'], feature=feature, target_value=target_value, comparison='>='
             )
 
-            if recommended_songs:
-                left_node = Node(attribute=feature, threshold=target_value, songs=None)
-                right_node = Node(attribute=feature, threshold=target_value, songs=None)
+            if left_songs and right_songs:
+                left_node = Node(attribute=feature, threshold=target_value, songs=left_songs)
+                right_node = Node(attribute=feature, threshold=target_value, songs=right_songs)
 
                 root_node.left = left_node
                 root_node.right = right_node
@@ -121,15 +117,27 @@ class SongRecommendationTree:
             '<': operator.lt,
         }
 
+        # Fetch the recommendations once and process the songs
         recommendations = self.sp.recommendations(seed_tracks=[song_id], limit=limit)['tracks']
 
         recommended_songs = []
+
+        # Store song features in a dictionary to avoid repeated API calls
+        song_features_cache = {}
+
         for track in recommendations:
             track_id = track['id']
-            feature_value = self.sp.get_song_features(track['name'])  # Using track ID directly here
-            if feature_value and feature in feature_value:
-                feature_value = feature_value[feature]
-            else:
+            # Check if we have the features cached already
+            if track_id not in song_features_cache:
+                feature_value = self.sp.get_song_features(
+                    track['name'])  # Using track name here, or use track_id if available
+                if feature_value and feature in feature_value:
+                    song_features_cache[track_id] = feature_value[feature]
+                else:
+                    song_features_cache[track_id] = None
+
+            feature_value = song_features_cache[track_id]
+            if feature_value is None:
                 continue  # Skip if no valid feature found
 
             if comparison == 'closest':
@@ -162,15 +170,20 @@ if __name__ == "__main__":
     REDIRECT_URI = 'http://localhost:8888/callback'
     SCOPE = 'user-library-read playlist-read-private user-top-read'
 
+    # Step 1: Create SpotifyOAuth instance for authentication
     auth_manager = SpotifyOAuth(client_id=CLIENT_ID,
                                 client_secret=CLIENT_SECRET,
                                 redirect_uri=REDIRECT_URI,
                                 scope=SCOPE)
 
-    sp = SpotipyExtended(auth_manager=auth_manager)
+    # Step 2: Use auth_manager to authenticate and create a Spotipy client
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+
+    # Step 3: Initialize SpotipyExtended with the authenticated Spotipy instance and dataset
+    sp_extended = SpotipyExtended(dataset=df)
 
     song = 'ARE WE STILL FRIENDS?'  # Example song
-    recommendation_tree = SongRecommendationTree(sp, song)
+    recommendation_tree = SongRecommendationTree(sp_extended, song)
 
-    # Print the decision tree structure
+    # Step 4: Print the decision tree structure
     recommendation_tree.print_tree(recommendation_tree.tree)
