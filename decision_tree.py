@@ -7,39 +7,39 @@ from typing import Any, Optional
 from dataclasses import dataclass
 import operator
 import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
+from spotipy.oauth2 import SpotifyClientCredentials, SpotifyOAuth
 
 
 class SpotipyExtended(spotipy.Spotify):
-    """A class to interact with Spotify Web API for authentication and fetching song features.
+    """A class to interact with Spotify Web API for authentication and fetching song features."""
 
-    Instance Attributes:
-        - client_id:
-        - client_secret:
-    """
-    client_id: str
-    client_secret: str
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    redirect_uri: Optional[str] = None
+    scope: Optional[str] = None
+    auth_manager: Optional[SpotifyOAuth] = None
 
-    def __init__(self, client_id: str, client_secret: str) -> None:
-        """Initializes the Spotipy class with the client credentials manager."""
-
-        # Set up the credentials manager to handle token fetching automatically
-        client_credentials_manager = SpotifyClientCredentials(
-            client_id=client_id,
-            client_secret=client_secret
-        )
-
-        # Initialize Spotipy with the credentials manager
-        super().__init__(client_credentials_manager=client_credentials_manager)
+    def __init__(self, client_id: Optional[str] = None, client_secret: Optional[str] = None,
+                 redirect_uri: Optional[str] = None, scope: Optional[str] = None,
+                 auth_manager: Optional[SpotifyOAuth] = None) -> None:
+        """Initializes the Spotipy class with the auth manager or client credentials."""
+        if auth_manager is None:  # if no auth_manager is provided, use client credentials
+            client_credentials_manager = SpotifyClientCredentials(
+                client_id=client_id,
+                client_secret=client_secret
+            )
+            super().__init__(client_credentials_manager=client_credentials_manager)
+        else:
+            super().__init__(auth_manager=auth_manager)
 
     def get_song_features(self, song_title: str) -> Optional[dict[str, Any]]:
         """Retrieves audio features for the given song."""
-        results = self.search(q=song_title, type='track', limit=1)  # Uses self instead of self.sp
-        if not results['tracks']['items']:  # If no song is found
+        results = self.search(q=song_title, type='track', limit=1)
+        if not results['tracks']['items']:
             return None
 
-        track_id = results['tracks']['items'][0]['id']  # Retrieve the song ID
-        features = self.audio_features(track_id)[0]  # Fetch audio features
+        track_id = results['tracks']['items'][0]['id']
+        features = self.audio_features(track_id)[0]
 
         return {
             'id': track_id,
@@ -61,7 +61,6 @@ class Node:
 
     def __init__(self, attribute: Optional[str] = None, threshold: Optional[float] = None,
                  songs: Optional[list[str]] = None) -> None:
-        """Initializes a Node with an optional splitting attribute and song list."""
         self.attribute = attribute
         self.threshold = threshold
         self.left = None
@@ -81,21 +80,19 @@ class SongRecommendationTree:
     tree: Optional[Node]
 
     def __init__(self, sp: SpotipyExtended, root_song: str) -> None:
-        """Initializes a decision tree with the given root_song."""
         self.sp = sp
         self.root_song = root_song
         self.tree = self.build_tree(root_song)
 
     def build_tree(self, song_title: str) -> Optional[Node]:
         """Constructs a decision tree by splitting based on song features."""
-        song_features = self.sp.get_song_features(song_title)  # Call get_song_features from SpotipyExtended
+        song_features = self.sp.get_song_features(song_title)
         if song_features is None:
             return None
 
-        # Extract only numeric features for splitting
         features_to_split = [
             audio_feature for audio_feature, value in song_features.items()
-            if isinstance(value, (int, float)) and audio_feature not in ['id']
+            if isinstance(value, (int, float)) and audio_feature != 'id'
         ]
 
         root_node = Node(attribute=None, threshold=None, songs=[song_title])
@@ -103,7 +100,7 @@ class SongRecommendationTree:
         for feature in features_to_split:
             target_value = song_features[feature]
             recommended_songs = self.recommended_songs_by_feature(
-                song_id=song_features['id'], feature=feature, target_value=song_features[feature]
+                song_id=song_features['id'], feature=feature, target_value=target_value
             )
 
             if recommended_songs:
@@ -117,10 +114,9 @@ class SongRecommendationTree:
 
     def recommended_songs_by_feature(self, song_id: str, feature: str, target_value: float,
                                      limit: int = 10, comparison: str = 'closest') -> list[str]:
-        """Returns similar songs to the given song based on a specific audio feature."""
         comparison_ops = {
-            '>=': operator.ge,  # Greater than or equal to
-            '<': operator.lt,   # Less than
+            '>=': operator.ge,
+            '<': operator.lt,
         }
 
         recommendations = self.sp.recommendations(seed_tracks=[song_id], limit=limit)['tracks']
@@ -128,7 +124,7 @@ class SongRecommendationTree:
         recommended_songs = []
         for track in recommendations:
             track_id = track['id']
-            feature_value = self.sp.get_song_features(track['name'])
+            feature_value = self.sp.get_song_features(track['name'])  # You might need track_id here instead
             if feature_value and feature in feature_value:
                 feature_value = feature_value[feature]
             else:
@@ -168,13 +164,21 @@ if __name__ == "__main__":
 
     CLIENT_ID = '673544b65c924a6e9dfb24c2b2624c6e'
     CLIENT_SECRET = '1812e2325a42479ab070a9bedfdcced9'
+    REDIRECT_URI = 'http://localhost:8888/callback'
 
-    # Use the SpotipyExtended class with provided client_id and client_secret
-    sp = SpotipyExtended(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+    scope = "user-read-private"
 
-    # Now you can use `sp` to interact with the Spotify API
+    auth_manager = SpotifyOAuth(client_id=CLIENT_ID,
+                                client_secret=CLIENT_SECRET,
+                                redirect_uri=REDIRECT_URI,
+                                scope=scope)
+
+    sp = SpotipyExtended(auth_manager=auth_manager)
+
     song = 'ARE WE STILL FRIENDS?'  # Example song
     recommendation_tree = SongRecommendationTree(sp, song)
 
     # Print the decision tree structure
     recommendation_tree.print_tree(recommendation_tree.tree)
+
+
