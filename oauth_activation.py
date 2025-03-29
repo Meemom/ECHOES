@@ -16,7 +16,7 @@ app.config["SECRET_KEY"] = os.urandom(64)
 CLIENT_ID = "f8f5475f76b6492d865574179fb39c3b"
 CLIENT_SECRET = "a6eb99e6534d4625ab7f78cef37f091b"
 REDIRECT_URI = "http://localhost:5000/callback"
-SCOPE = "user-library-read playlist-modify-public playlist-modify-private user-top-read"
+SCOPE = "user-library-read user-top-read playlist-read-private"
 CACHE_PATH = ".spotify_cache"
 
 class SpotifyAuthentication:
