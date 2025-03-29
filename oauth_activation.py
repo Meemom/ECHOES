@@ -4,94 +4,153 @@ This module handles the Spotify OAuth authentication process and provides endpoi
 """
 
 import os
-
 from flask import Flask, session, url_for, redirect, request, jsonify
-from decision_tree import MISSING
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
-from spotipy.cache_handler import FlaskSessionCacheHandler
-
+from spotipy.cache_handler import FlaskSessionCacheHandler, CacheFileHandler
+from typing import Optional, Dict, Any
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(64)
 
-client_id = "f8f5475f76b6492d865574179fb39c3b"
-client_secret = "a6eb99e6534d4625ab7f78cef37f091b"
-redirect_uri = "http://localhost:5000/callback"
-scope = "user-library-read,user-top-read,playlist-read-private"
+# constants TODO: make sure to unify the client_id, client_secret, and redirect uri across all files
+CLIENT_ID = "f8f5475f76b6492d865574179fb39c3b"
+CLIENT_SECRET = "a6eb99e6534d4625ab7f78cef37f091b"
+REDIRECT_URI = "http://localhost:5000/callback"
+SCOPE = "user-library-read playlist-modify-public playlist-modify-private user-top-read"
+CACHE_PATH = ".spotify_cache"
 
-cache_handler = FlaskSessionCacheHandler(session)
+class SpotifyAuthentication:
+    """
+    Handles Spotify authentication using Flask session for caching tokens.
+    """
+    def __init__(self, client_id: str, client_secret: str, redirect_uri: str, scope: str) -> None:
+        """Initializes the SpotifyAuthentication class with API credentials."""
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
+        self.scope = scope
+        self.auth_manager = None
+        self.spotify = None
 
-sp_auth = SpotifyOAuth(
-    client_id=client_id,
-    client_secret=client_secret,
-    redirect_uri=redirect_uri,
-    scope=scope,
-    cache_handler=cache_handler,
-    show_dialog=True
-)
+    def setup_auth_manager(self) -> None:
+        """Sets up the SpotifyOAuth manager with Flask session cache handler."""
+        self.auth_manager = SpotifyOAuth(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            redirect_uri=self.redirect_uri,
+            scope=self.scope,
+            cache_path=CACHE_PATH,
+            show_dialog=True
+        )
 
-sp = Spotify(auth_manager=sp_auth)
+    def authenticate(self) -> Optional[Spotify]:
+        """Authenticates the user and returns a Spotify client instance."""
+        try:
+            if self.auth_manager is None:
+                self.setup_auth_manager()
 
-@app.route("/")  # home page
+            self.spotify = Spotify(auth_manager=self.auth_manager)
+
+            # test connectedness
+            current_user = self.spotify.current_user()
+            print(f"Successfully authenticated as: {current_user['display_name']}")
+
+            return self.spotify
+
+        except Exception as e:
+            print(f"Authentication failed: {str(e)}")
+            return None
+
+    def get_auth_url(self) -> str:
+        """Returns the authorization URL for the user to log in."""
+        if self.auth_manager is None:
+            self.setup_auth_manager()
+
+        return self.auth_manager.get_authorize_url()
+
+    def get_token(self, code: str) -> Dict[str, Any]:
+        """Exchange the authorization code for an access token."""
+        if self.auth_manager is None:
+            self.setup_auth_manager()
+
+        return self.auth_manager.get_access_token(code)
+    
+    def validate_token(self) -> bool:
+        """Check if the current token is valid."""
+        if self.auth_manager is None:
+            return False
+
+        token_info = self.auth_manager.get_cached_token()
+
+        if token_info:
+            return not self.auth_manager.is_token_expired(token_info)
+
+        return False
+    
+    def refresh_token(self) -> Optional[Spotify]:
+        """Refresh the access token and update session."""
+        if self.auth_manager is None:
+            return None
+        
+        token_info = self.auth_manager.get_cached_token()
+
+        if token_info:
+            new_token = self.auth_manager.refresh_access_token(token_info['refresh_token'])
+            session["token_info"] = new_token  # saves new token in session
+            self.spotify = Spotify(auth_manager=self.auth_manager)
+            return self.spotify
+
+        return None
+
+
+@app.route("/")
 def home():
-    if not sp_auth.validate_token(cache_handler.get_cached_token()):
-        auth_url = sp_auth.get_authorize_url()
+    """Home page route that redirects to authentication if needed."""
+    authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    authenticator.setup_auth_manager()
+    
+    if not authenticator.validate_token():
+        auth_url = authenticator.get_auth_url()
         return redirect(auth_url)
+
     return redirect(url_for("userdata"))
 
 
 @app.route("/callback")
-def callback():  # Used so that the user doesn't have to login over and over again (unless we change scope)
-    sp_auth.get_access_token(request.args["code"])
+def callback():
+    """Callback route for Spotify authentication."""
+    authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    authenticator.setup_auth_manager()
+    authenticator.get_token(request.args["code"])
+    
     return redirect(url_for("userdata"))
-
 
 @app.route("/userdata")  # for the sake of testing out features, need to fix this up so we can make it to a useful page (perhaps profile data recap, just basic info)
 def userdata():
-    if not sp_auth.validate_token(cache_handler.get_cached_token()):
-        auth_url = sp.auth.get_authorize_url()
+    """User data route that retrieves and displays user information."""
+    authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    authenticator.setup_auth_manager()
+    
+    if not authenticator.validate_token():
+        auth_url = authenticator.get_auth_url()
         return redirect(auth_url)
 
-    user = sp.current_user()
-    top_tracks = sp.current_user_top_tracks(limit=10)["items"]
+    spotify = Spotify(auth_manager=authenticator.auth_manager)
+    user = spotify.current_user()
+    top_tracks = spotify.current_user_top_tracks(limit=10)["items"]
 
     return jsonify({
         "display_name": user["display_name"],
         "top_tracks": [{"name": t["name"], "popularity": t["popularity"]} for t in top_tracks]
     })
 
-
-@app.route("/getplaylists")  # for the sake of testing out features
-def get_playlists():
-    if not sp_auth.validate_token(cache_handler.get_cached_token()):
-        auth_url = sp.auth.get_authorize_url()
-        return redirect(auth_url)
-    
-    playlists = sp.current_user_playlists()
-    playlist_info = [(playlist["name"], playlist["id"]) for playlist in playlists["items"]]
-    playlists_html = "<br>".join([f"{name}: {url}" for name, url in playlist_info])
-
-    return playlists_html
-
-
-@app.route("/recommend", methods=["POST"])
-def recommend():  # discuss with mima what command to use for "getting recs"
-    data = request.json
-    song_name = data.get("song")
-
-    if not song_name:
-        return jsonify({"error": "No song provided"}), 400
-
-    recommendations = MISSING(song_name)  # TODO: fix after discussion
-    return jsonify({"recommendations": recommendations})
-
-
-@app.route("/logout")  # logout page
+@app.route("/logout")
 def logout():
+    """Logout route that clears the session and redirects to home."""
     session.clear()
     return redirect(url_for("home"))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # run the app
     app.run(debug=True)

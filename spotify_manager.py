@@ -7,7 +7,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from oauth_activation import Flask
 
-# constants TODO: make sure to unify the client_id, client_secret, and redirect uri across all files
 client_id = "f8f5475f76b6492d865574179fb39c3b"
 client_secret = "a6eb99e6534d4625ab7f78cef37f091b"
 redirect_uri = "http://localhost:5000/callback"
