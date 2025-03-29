@@ -7,7 +7,6 @@ import os
 from flask import Flask, session, url_for, redirect, request, jsonify
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
-from spotipy.cache_handler import FlaskSessionCacheHandler, CacheFileHandler
 from typing import Optional, Dict, Any
 
 app = Flask(__name__)

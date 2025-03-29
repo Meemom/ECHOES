@@ -4,71 +4,24 @@ This module handles the GUI for the Spotify Recommendation System, including use
 """
 
 import tkinter as tk
-from tkinter import messagebox, simpledialog
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-from oauth_activation import Flask
+from customtkinter import *
+from PIL import Image
 
-# TODO: fix docstrings and invariants
+# Setting theme and appearance
+set_appearance_mode("dark")
+set_default_color_theme("green")
 
-# constants
-client_id = "f8f5475f76b6492d865574179fb39c3b"
-client_secret = "a6eb99e6534d4625ab7f78cef37f091b"
-redirect_uri = "http://localhost:5000/callback"
+root = CTk()
+# root.title("TBA")   # TODO: add title
+# root.iconbitmap("TBA")  # TODO: add icon
+root.geometry("600x350")
 
-root = tk.Tk()
-root.title("Song Recommendation System")
-
-from tkinter import Frame, StringVar, Tk, E, N, S, W
-from tkinter.ttk import Button, Entry, Label
-
-class Application(Tk):
-
-    def __init__(self, *args, **kwargs):
-
-        super().__init__(*args, **kwargs)
-        self.title("Hello World")
-        self.geometry("600x100")
-        self.resizable(width = False, height = False)
-
-        HelloWorld(self).grid(sticky = (E + W + N + S))
-        self.columnconfigure(0, weight = 1)
-
-class HelloWorld(Frame):
-
-    def __init__(self, parent, *args, **kwargs):
-
-        super().__init__(parent, *args, **kwargs)
-
-        self.name = StringVar()
-        self.hello_message = StringVar(value = "Hello!")
-
-        name_label = Label(self, text = "Name")
-        name_textbox = Entry(self, textvariable = self.name)
-        name_button = Button(self, text = "Set", command = self.set_name)
-
-        hello_label = Label(self, textvariable = self.hello_message)
-
-        name_label.grid(row = 0, column = 0, sticky = W)
-        name_textbox.grid(row = 0, column = 1, sticky = (E + W))
-        name_button.grid(row = 0, column = 2, sticky = E)
-        hello_label.grid(row = 1, column = 1, columnspan = 3)
-
-        self.columnconfigure(1, weight=1)
-
-    def set_name(self):
-
-        if self.name.get():
-            self.hello_message.set("Hello " + self.name.get())
-        else:
-            self.hello_message.set("Hello World")
-
-
+my_button = CTkButton(root, text="Hello World", command=lambda: print("Button clicked!"))
+my_button.pack(pady=20)
 
 # main loop
 if __name__ == "__main__":
-    app = Application()
-    app.mainloop()
+    root.mainloop()
 
 
 
