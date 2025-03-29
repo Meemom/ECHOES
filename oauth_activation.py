@@ -1,3 +1,8 @@
+"""
+CSC111 Project 2: Spotify Recommendation System - Oauth Activation Module
+This module handles the Spotify OAuth authentication process and provides endpoints for user data retrieval and song recommendations.
+"""
+
 import os
 
 from flask import Flask, session, url_for, redirect, request, jsonify
