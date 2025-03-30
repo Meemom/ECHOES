@@ -1,16 +1,16 @@
 """
 Author: Julia Sinclair
-Date: 2025-03-28
+Date: 2025-03-30
 Desc: This file contains the code for the recommnder graph element of our project. Included in this
 file is the _Vertex and Graph classes that we will be using in our main function.
 
 - modify the song class from the Spotipy class in decision trees
 """
 from __future__ import annotations
-from spotipy_class import SpotipyExtended
+from spotipy import Spotify
+import oauth_activation
 import csv
 from typing import Any, Optional
-import pandas
 
 import networkx as nx
 
@@ -35,21 +35,15 @@ class _SongVertex(_Vertex):
     This concrete class inherits from the general vertex class to create a vertex for the
     songs of the graph
     """
-    url: Optional[str]
-    song_id: Optional[str]
+    artist: str
 
-    def __init__(self, song_title: str, song_id: str, url: str) -> None:
+    def __init__(self, song_title: str, artist: str) -> None:
         """
 
         """
         super().__init__(song_title)
         self.neighbours = set()
-        self.url, self.song_id = url, song_id
-
-    def add_neighbours(self, user_id) -> None:
-        """
-        This method adds neighbours to the _Song_Vertex
-        """
+        self.artist = artist
 
 
 class Graph:
@@ -69,26 +63,28 @@ class Graph:
         self._song_vertices = {}
         self._user_vertices = {}
 
-    def add_edge(self, username: str, song_title: str) -> None:
+    def add_edge(self, username: str, song_title: str, artist: str) -> None:
         """
         This method creates an edge between the user with the specified username and song
         with the specified song_title.
         """
-        if username in self._user_vertices and song_title in self._song_vertices:
+        song_id = "title:" + song_title + "artist:" + artist
+        if username in self._user_vertices and song_id in self._song_vertices:
             user = self._user_vertices[username]
-            song = self._song_vertices[song_title]
+            song = self._song_vertices[song_id]
 
             user.neighbours.add(song)
             song.neighbours.add(user)
         else:
             raise ValueError
 
-    def add_song_vertex(self, title: str, song_id: str, url: str) -> None:
+    def add_song_vertex(self, title: str, artist: str) -> None:
         """
         This method adds a song vertex to the graph
         """
-        if title not in self._song_vertices:
-            self._song_vertices[title] = _SongVertex(title, song_id, url)
+        song_id = "title:" + title + "artist:" + artist
+        if song_id not in self._song_vertices:
+            self._song_vertices[song_id] = _SongVertex(title, artist)
 
     def add_user_vertex(self, item: Any, main_user: bool) -> None:
         """
@@ -102,7 +98,7 @@ class Graph:
 
     def _get_similar_users(self) -> list[str]:
         """
-        This method returns a list of the usernames for the three most similar users to the current_user
+        This method returns a list of the usernames for the five most similar users to the current_user
         """
 
     def _get_song_recs(self, similar_users: list[str]) -> list[list[str]]:
@@ -111,7 +107,7 @@ class Graph:
         are not currently in the user's currently saved songs (neighbours)
         """
 
-    def get_recommendations(self) -> list[list[tuple]]:
+    def get_recommendations(self, seen: set) -> list[list[tuple]]:
         """
         This method returns recommendations to the user based on their listened to songs.
         The method returns a tuple of two string: one is the song title, the other is the song url.
@@ -170,42 +166,26 @@ class Graph:
         return graph_nx
 
 
-def _load_song(song_title: str, artist_name: str, spotify_info: SpotipyExtended, graph: Graph, seen: set) -> bool:
+def _load_curr_user_songs(spotify_info: Spotify, graph: Graph) -> None:
     """
-    This
-
-    Return True if the song exists and is added, False otherwise.
+    Loads the current user's songs into the graph
     """
-    song_info = spotify_info.get_song_identifiers(song_title, artist_name)
+    curr_user_tracks = spotify_info.current_user_saved_tracks(limit=100)
+    graph.add_user_vertex("current_user", True)
+    for track_info in curr_user_tracks['items']:
+        title = track_info['track']['name']
+        artist = track_info['track']['album']['artists'][0]['name']
 
-    if song_info is not None and song_info[0] not in seen:
-        graph.add_song_vertex(song_title, song_info[0], song_info[1])
-        seen.add(song_info[0])
-        return True
-
-    return False
-
-
-def _load_curr_user_songs(spotify_info: SpotipyExtended, graph: Graph) -> None:
-    """
-    TODO - implement this function (need to get around ouath errors with spotipy)
-    """
-    curr_user_tracks = spotify_info.current_user_saved_tracks()
-    for idx, item in enumerate(curr_user_tracks['items']):
-        track = item['track']
-        print(idx, track['artists'][0]['name'], " – ", track['name'])
+        graph.add_song_vertex(title, artist)
+        graph.add_edge("current_user", title, artist)
 
 
-def load_song_listening_graph(listening_info_file: str, spotify_info: SpotipyExtended) -> Graph:
+def load_song_listening_graph(listening_info_file: str, spotify_info: Spotify) -> Graph:
     """
     This method creates a graph based on the kaggle data set and the current user's information
-
-    CURRENT ERROR:
-    Being rate limited because the data set is so big...
     """
     graph_so_far = Graph("current_user")
     users_so_far = set()
-    songs_so_far = set()
 
     # load songs and associated listeners
     with open(listening_info_file, 'r', newline='', encoding='utf-8') as file:
@@ -214,25 +194,38 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: SpotipyExt
 
         # get past the headers
         next(reader)
+        limit = 0
 
         # add each song to the graph
         for row in reader:
-            result = _load_song(row[2], row[1], spotify_info, graph_so_far, songs_so_far)
+            # limit for testing purposes
+            if limit == 500000:
+                break
 
-            if not result:
-                continue
+            graph_so_far.add_song_vertex(row[2], row[1])
 
             if row[0] not in users_so_far:
                 graph_so_far.add_user_vertex(row[0], False)
                 users_so_far.add(row[0])
 
-            # this is for debugging purposes
-            print("Values: " + row[0] + ", " + row[2])
+            graph_so_far.add_edge(row[0], row[2], row[1])
+            limit += 1
 
-            graph_so_far.add_edge(row[0], row[2])
-
-    # TODO - load the songs for current user
-    # _load_curr_user_songs(spotify_info, graph_so_far)
+    _load_curr_user_songs(spotify_info, graph_so_far)
 
     # final return statement
     return graph_so_far
+
+
+if __name__ == '__main__':
+    CLIENT_ID = "6491f8aa9e064c7d9c74d3666dcfabdd"
+    CLIENT_SECRET = "b9b859e1b50144baa17d7277cdb0708e"
+    REDIRECT_URI = "http://localhost:8888/callback"
+    SCOPE = "user-library-read"
+    CACHE_PATH = ".spotify_cache"
+
+    auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    auth.setup_auth_manager()
+    spot_test = auth.authenticate()
+
+    my_graph = load_song_listening_graph('spotify_dataset.csv', spot_test)
