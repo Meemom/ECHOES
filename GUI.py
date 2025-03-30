@@ -38,7 +38,7 @@ class ECHOESgui(CTk):
 
         # initialize spotipy client
         self.sp = None
-        self.authenticated = None
+        self.authenticated = False
 
         # create tabview so it can handle multiple pages
         self.tabview = CTkTabview(self)
@@ -53,8 +53,6 @@ class ECHOESgui(CTk):
         self.create_login_tab()
         self.create_recommendation_tab()
         self.create_user_data_tab()
-
-        self.fetch_user_data()
     
     def create_login_tab(self):
         """Create login tab UI"""
@@ -113,15 +111,23 @@ class ECHOESgui(CTk):
 
     def fetch_user_data(self):
         """Fetch user data from Spotify API"""
+        if not self.authenticated or self.sp is None:
+            self.user.data_label.configure(text="User not authenticated. Please login.")
+            return
         try:
+            self.user_data_label.configure(text="Fetching your top tracks and artists...")
+            self.update()
             top_tracks = self.sp.current_user_top_tracks(limit=5, time_range='medium_term')
-            top_artists = self.sp.__annotations__current_user_top_artists(limit=5, time_range='medium_term')
+            top_artists = self.sp.current_user_top_artists(limit=5, time_range='medium_term')
 
             tracks = [track['name'] for track in top_tracks['items']]
             artists = [artist['name'] for artist in top_artists['items']]
-        except:
+            
             data_text = "Top 5 Songs:\n" + "\n".join(tracks) + "\n\nTop 5 Artists:\n" + "\n".join(artists)
-        self.user_data_label.configure(text=data_text)
+            self.user_data_label.configure(text=data_text)
+
+        except Exception as e:
+            self.user_data_label.configure(text=f"Error fetching data: {str(e)}\nPlease try again later.")
 
     def start_oauth_server(self):
         """Start the Flask server for OAuth in a separate thread"""
@@ -148,31 +154,59 @@ class ECHOESgui(CTk):
         self.login_button.configure(text="Logging in...", state="disabled")
         self.request_label.configure(text="Authorization in progress. Please check your browser.")
         
-        self.after(5000, self.setup_spotify)  # simulating login success
+        # Check authentication status periodically
+        self.check_auth_status()
 
-    def setup_spotify(self):
-        """Initialize Spotipy client and handle login verification"""
-        try:
-            self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=oauth.CLIENT_ID,
-                                                                client_secret=oauth.CLIENT_SECRET,
-                                                                redirect_uri=oauth.REDIRECT_URI,
-                                                                scope=oauth.SCOPE))
-            self.authenticated = True
-            self.switch_to_recommendations()
-        except:
-            self.request_label.configure(text="Login failed. Please try again.")
+    def check_auth_status(self, attempts=0, max_attempts=5):
+        """Check if authentication was successful"""
+        if attempts >= max_attempts:
+            # After several attempts, reset login button and show failure message
             self.login_button.configure(text="Login", state="normal")
+            self.request_label.configure(text="Login timed out. Please try again.")
+            return
+        
+        try:
+            # Try to create a SpotifyOAuth instance and get a valid token
+            auth_manager = SpotifyOAuth(
+                client_id=oauth.CLIENT_ID,
+                client_secret=oauth.CLIENT_SECRET,
+                redirect_uri=oauth.REDIRECT_URI,
+                scope=oauth.SCOPE,
+                cache_path=oauth.CACHE_PATH
+            )
+            
+            token_info = auth_manager.get_cached_token()
+            
+            if token_info and not auth_manager.is_token_expired(token_info):
+                # Successfully authenticated
+                self.sp = spotipy.Spotify(auth_manager=auth_manager)
+                self.authenticated = True
+                self.switch_to_recommendations()
+                return
+            
+            # Not authenticated yet, check again after a delay
+            self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
+            
+        except Exception as e:
+            # Handle any exceptions during authentication check
+            print(f"Auth check error: {str(e)}")
+            self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
 
     def switch_to_recommendations(self):
         """Switch to the recommendations tab after login"""
         if self.authenticated:
             self.tabview.set("Recommendations")
+            self.login_button.configure(text="Logged in.", state="disabled")
+            self.request_label.configure(text="Authentication was successful!")
     
     def switch_to_user_data(self):
         """Switch to the user data tab and fetch user data"""
         if self.authenticated:
             self.tabview.set("User Data")
             self.fetch_user_data()
+        else:
+            self.tabview.set("Login")
+            self.request_label.configure(text="Please login to continue.")
 
 
 # main loop, runs the actual desktop application

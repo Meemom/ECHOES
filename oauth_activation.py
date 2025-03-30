@@ -120,23 +120,37 @@ def home():
 @app.route("/callback")
 def callback():
     """Callback route for Spotify authentication."""
-    authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
-    authenticator.setup_auth_manager()
-    authenticator.get_token(request.args["code"])
-    
-    return redirect(url_for("success"))
+    try:
+        authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+        authenticator.setup_auth_manager()
+        
+        # Make sure code parameter exists
+        if "code" not in request.args:
+            return "Error: No authorization code provided. Please try again.", 400
+            
+        authenticator.get_token(request.args["code"])
+        return redirect(url_for("success"))
+    except Exception as e:
+        print(f"Callback error: {str(e)}")
+        return f"Error during authentication: {str(e)}", 500
 
 @app.route("/success")
 def success():
     """User data route that retrieves and displays user information."""
-    authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
-    authenticator.setup_auth_manager()
-    
-    if not authenticator.validate_token():
-        auth_url = authenticator.get_auth_url()
-        return redirect(auth_url)
+    try:
+        authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+        authenticator.setup_auth_manager()
+        
+        if not authenticator.validate_token():
+            auth_url = authenticator.get_auth_url()
+            return redirect(auth_url)
 
-    return # TODO: Add success page content here telling the user they can go back to the application
+        # Return a simple HTML page informing the user they can return to the app
+        return # TODO: html code here saying user can return to the app
+        
+    except Exception as e:
+        print(f"Success route error: {str(e)}")
+        return f"Error displaying success page: {str(e)}", 500
 
 @app.route("/logout")
 def logout():
