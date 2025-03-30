@@ -126,7 +126,7 @@ class ECHOESgui(CTk):
             fg_color="#2FA572",
             corner_radius=20
             )
-        self.user_data_label.pack(pady=165)
+        self.user_data_label.pack(pady=10)
 
     def fetch_user_data(self):
         """Fetch user data from Spotify API"""
@@ -142,8 +142,65 @@ class ECHOESgui(CTk):
             tracks = [track['name'] for track in top_tracks['items']]
             artists = [artist['name'] for artist in top_artists['items']]
             
-            data_text = "Top 5 Songs:\n" + "\n".join(tracks) + "\n\nTop 5 Artists:\n" + "\n".join(artists)
-            self.user_data_label.configure(text=data_text)
+            tracks_text = "Top 5 Songs:\n" + "\n".join(tracks) 
+            artists_text = "Top 5 Artists:\n" + "\n".join(artists)
+            
+            main_frame = CTkScrollableFrame(
+                master=self.user_data_tab,
+                width=540,
+                height=432,
+                corner_radius=10, 
+                fg_color="transparent",
+                border_color="#535454",
+                border_width=2
+                )
+            main_frame.pack_propagate(False)
+            main_frame.pack(expand=True, fill="both", pady=0)
+
+            songs_frame = CTkScrollableFrame(
+                master=main_frame,
+                width=530,
+                height=210, 
+                corner_radius=20,
+                fg_color="#CDFF8B",
+
+                )
+            songs_frame.pack_propagate(False)
+            songs_frame.pack(expand=True, fill="both", side="top", pady=0)
+
+            artists_frame = CTkScrollableFrame(
+                master=main_frame,
+                width=530,
+                height=210, 
+                corner_radius=20,
+                fg_color="#FF82FF"
+                )
+            artists_frame.pack_propagate(False)
+            artists_frame.pack(side="top", fill="both", expand=True, pady=5)
+
+            # Debugging visibility
+            print("Songs Frame Created:", songs_frame)
+            print("Artists Frame Created:", artists_frame)
+
+            tracks_label = CTkLabel(
+                master=songs_frame,
+                text=tracks_text,
+                text_color="black",
+                font=("Coolvetica", 15),
+                corner_radius=20
+                )
+            tracks_label.pack(expand=True, pady=0)
+
+            artists_label = CTkLabel(
+                master=artists_frame,
+                text=artists_text,
+                text_color="black",
+                font=("Coolvetica", 15),
+                corner_radius=20
+                )
+            artists_label.pack(expand=True, pady=5)
+            self.update()
+            self.user_data_label.configure(text="Your listening data in the past 6 months", font=("Coolvetica", 25))
 
         except Exception as e:
             self.user_data_label.configure(text=f"Error fetching data: {str(e)}\nPlease try again later.")
