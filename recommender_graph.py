@@ -138,24 +138,61 @@ class Graph:
 
         return connected_so_far
 
-    def _get_most_similar_users(self) -> list[str]:
+    def _get_most_similar_user(self) -> str:
         """
-        This method returns a list of the usernames for the five most similar users to the current_user
-        - make connected_users a dict (mapping user to number of connections)
+        This method returns a username for a user with the highest similarity scores to the current_user
         - need to ensure that len(neighbours) is not the same as number of connections
-        TODO - implement fully
-        TODO - doctestssss
+
+        Returns the current user vertex id if there are NO CONNECTED USERS
+
+        >>> graph = Graph()
+        >>> graph.add_user_vertex("user_1", True)
+        >>> graph.add_user_vertex("user_2", False)
+        >>> graph.add_user_vertex("user_3", False)
+        >>> graph.add_song_vertex("Let Down", "Radiohead")
+        >>> graph.add_song_vertex("Kiss of Life", "Sade")
+        >>> graph.add_song_vertex("Dreams", "The Cranberries")
+        >>> graph.add_edge("user_1", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_1", "Let Down", "Radiohead")
+        >>> graph.add_edge("user_2", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_2", "Kiss of Life", "Sade")
+        >>> graph.add_edge("user_3", "Kiss of Life", "Sade")
+        >>> graph.add_edge("user_3", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_3", "Let Down", "Radiohead")
+        >>> graph._get_most_similar_user()
+        'user_3'
         """
         connected_users = self._get_connected_users()
-        return []
+        most_similar_user = self.user_vertex_id
+        max_score_so_far = 0
 
-    def _get_song_recs(self, similar_users: list[str]) -> list[list[str]]:
+        for user_id in connected_users:
+            # if the number of connections is the same as the number of neighbours of the current user's id
+            # then there are no new recommendations to be
+            if (len(self._user_vertices[self.user_vertex_id].neighbours) ==
+                    len(self._user_vertices[user_id].neighbours) and
+                    len(self._user_vertices[self.user_vertex_id].neighbours) == connected_users[user_id][0]):
+                continue
+            else:
+                similarity_score = connected_users[user_id][0] / connected_users[user_id][1]
+                if similarity_score > max_score_so_far:
+                    most_similar_user = user_id
+                    max_score_so_far = similarity_score
+
+        return most_similar_user
+
+    def _get_song_recs(self, similar_user: str) -> list[list[str]]:
         """
         This method returns a list of three song ids per similar user which
         are not currently in the user's currently saved songs (neighbours)
         - This includes URL for the songs
+
+        Preconditions:
+            -
+
         TODO - implement fully
         TODO - doctests
+        TODO - preconditions
         """
 
     def get_recommendations(self, seen: set) -> list[list[tuple]]:
@@ -309,9 +346,9 @@ if __name__ == '__main__':
     SCOPE = "user-library-read"
     CACHE_PATH = ".spotify_cache"
 
-    # auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
-    # auth.setup_auth_manager()
-    # spot_test = auth.authenticate()
-    spot_test = None
+    auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    auth.setup_auth_manager()
+    spot_test = auth.authenticate()
+    # spot_test = None
 
     my_graph = load_song_listening_graph('spotify_dataset.csv', spot_test)
