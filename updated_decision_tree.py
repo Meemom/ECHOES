@@ -1,16 +1,24 @@
 """CSC111 Project 2: Spotify Recommendation System - Decision Tree
 
-This module provides the functions to create a decision tree that recommends songs based on an input song.
+This module contains functions for fitting a decision tree to a music dataset,
+enabling song recommendations based on a randomly selected song.
 """
+
+# Standard Library imports
+import os
+import random
+from collections import Counter
 from typing import Any, Optional
+
+# Third-Party Library imports
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics import accuracy_score
-import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import LabelEncoder
-from collections import Counter
-import random
+import graphviz
+from graphviz import Source
 
 
 class Node:
@@ -18,7 +26,6 @@ class Node:
 
     Instance Attributes:
         - feature: The index of the feature (column) used to split the data at this node.
-        - feature_name: The name of the feature used for splitting at this node.
         - threshold: The threshold value for the feature used to split the data.
         - left: The left child node.
         - right: The right child node.
@@ -31,15 +38,16 @@ class Node:
     right: Optional['Node']
     value: Optional[Any]
 
-    def __init__(self, feature=None, feature_name=None, threshold=None, left=None, right=None,*,value=None):
+    def __init__(self, feature=None, threshold=None, left=None, right=None,*,value=None) -> None:
+        """Initialize a Node class."""
         self.feature = feature
-        self.feature_name = feature_name
         self.threshold = threshold
         self.left = left
         self.right = right
         self.value = value
 
-    def is_leaf_node(self):
+    def is_leaf_node(self) -> None:
+        """Returns whether the node is a leaf node."""
         return self.value is not None
 
 
@@ -51,24 +59,27 @@ class DecisionTree:
         - max_depth: The maximum depth of the decision tree. Limits the tree's growth to prevent overfitting.
         - n_features: The number of features to consider when looking for the best split.
         If None, all features are considered.
-        - feature_names:
-        - root:
+        - root: The root node of the decision tree.
     """
+    min_samples_split: int
+    max_depth: int
+    n_features: Optional[int]
+    root: Optional[Node]
 
-    def __init__(self, min_samples_split=10, max_depth=5, n_features=None, feature_names=None):
+    def __init__(self, min_samples_split=10, max_depth=5, n_features=None) -> None:
+        """Initializes a DecisionTree class."""
         self.min_samples_split = min_samples_split
         self.max_depth = max_depth
         self.n_features = n_features
-        self.feature_names = feature_names
         self.root = None
 
-    def fit(self, X, y):
+    def fit(self, X, y) -> None:
         """Fits a decision tree to the dataset."""
         # check that self.n_features is not more than the actual number of features
         self.n_features = X.shape[1] if not self.n_features else min(X.shape[1], self.n_features)
-        self.root = self._grow_tree(X, y)
+        self.root = self._grow_tree(X, y)  # builds a decision tree based on the training data
 
-    def _grow_tree(self, X, y, depth=0):
+    def _grow_tree(self, X, y, depth=0) -> Node:
         """Recursively grows the decision tree."""
         n_samples, n_feats = X.shape  # get the number of samples and the number of features in the current node
         n_labels = len(np.unique(y))  # get the number of unique labels in the target variable
@@ -92,7 +103,7 @@ class DecisionTree:
 
         return Node(feature=best_feature, threshold=best_threshold, left=left, right=right)
 
-    def _best_split(self, X, y, feat_idxs):
+    def _best_split(self, X, y, feat_idxs) -> tuple[Optional[int], Optional[float]]:
         """Find the best threshold among all possible thresholds."""
         best_gain = -1
         split_idx, split_threshold = None, None
@@ -112,7 +123,13 @@ class DecisionTree:
 
         return split_idx, split_threshold
 
-    def _information_gain(self, y, X_column, threshold):
+    def _information_gain(self, y, X_column, threshold) -> float:
+        """Compute the information gain from splitting a dataset at a given threshold.
+
+        Preconditions:
+            - y.size > 0
+            - X.column.size == y.size
+        """
         # parent entropy
         parent_entropy = self._entropy(y)
 
@@ -132,26 +149,51 @@ class DecisionTree:
         information_gain = parent_entropy - child_entropy
         return information_gain
 
-    def _split(self, X_column, split_threshold):
+    def _split(self, X_column, split_threshold) -> tuple[np.ndarray, np.ndarray]:
+        """Split the dataset into two groups based on the given split_threshold.
+
+        Preconditions:
+            - X.column.size > 0
+        """
         left_idxs = np.argwhere(X_column <= split_threshold).flatten()
         right_idxs = np.argwhere(X_column > split_threshold).flatten()
         return left_idxs, right_idxs
 
-    def _entropy(self, y):
+    def _entropy(self, y) -> float:
+        """Calculate the entropy of a given set of labels.
+
+        The entropy is a measure of the impurity or uncertainty in the labels.
+        It ranges from 0 (no uncertainty) to log2(n) (maximum uncertainty).
+        """
         hist = np.bincount(y)
         prob = hist / len(y)
         return -np.sum(prob * np.log2(prob + 1e-9))
 
-    def _most_common_label(self, y):
+    def _most_common_label(self, y) -> Optional[int]:
+        """Find the most common label in the dataset."""
         if len(y) == 0:
             return None
         counter = Counter(y)
         return counter.most_common(1)[0][0]
 
-    def predict(self, X):
+    def predict(self, X) -> np.array:
+        """Predict class labels for a given dataset using the trained decision tree.
+
+        Preconditions:
+            - self.root is not None
+        """
         return np.array([self._traverse_tree(x, self.root) for x in X])
 
-    def _traverse_tree(self, x, node):
+    def _traverse_tree(self, x, node) -> int:
+        """Recursively traverse the decision tree to classify a single sample.
+
+        If the current node is a leaf, return its stored class label. Otherwise, continue
+        traversing based on the feature's threshold.
+
+        Preconditions:
+            - node is not None
+            - x.size > 0 (the input sample must have at least one feature)
+        """
         if node.is_leaf_node():  # base case
             return node.value
         else:
@@ -161,8 +203,18 @@ class DecisionTree:
                 return self._traverse_tree(x, node.right)
 
 
-def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str], dataset: pd.DataFrame, top_n=5):
-    """Recommend songs based on the user's songs features using cosine similarity."""
+def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str],
+                    dataset: pd.DataFrame, top_n=5) -> Optional[list[tuple]]:
+    """Recommend the top_n songs based on the cosine similarity of the given user_song using a decision tree.
+
+    Preconditions:
+        - dtree is a trained DecisionTree object
+        - user_song is a valid song name in the dataset
+        - features is a list of feature names that exist in the dataset
+        - dataset is a pandas DataFrame containing at least the column names: 'name', 'artists'
+        and the specified features.
+        - top_n > 0 (default value is returning the top 5 recommended songs).
+    """
 
     # find user_song features in the dataset
     user_song_features = get_song_features(user_song, features, dataset)
@@ -183,7 +235,8 @@ def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str], da
     leaf_node_songs = leaf_node_songs.drop_duplicates(subset='name')
 
     if len(leaf_node_songs) == 0:
-        return "No songs found in this leaf node."
+        print("No songs found in this leaf node.")
+        return None
 
     # begin finding similar songs
     similarities = []
@@ -214,8 +267,10 @@ def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str], da
     return recommended_songs[:top_n]
 
 
-def calculate_cosine_similarity(user_song_vector, song_vector):
-    """Calculates cosine similarity between user song and a song from the dataset."""
+def calculate_cosine_similarity(user_song_vector, song_vector) -> float:
+    """Calculates the cosine similarity between the feature vectors of the user's song and a song from the dataset.
+    If the shapes of the feature vectors for the user song and dataset song do not match, it returns -1.
+    """
     if user_song_vector.shape == song_vector.shape:  # check if user song and dataset song have the same dimensions
         return cosine_similarity(user_song_vector, song_vector)
     else:
@@ -223,11 +278,11 @@ def calculate_cosine_similarity(user_song_vector, song_vector):
 
 
 def get_song_features(user_song: str, features: list[str], dataset: pd.DataFrame) -> dict[str, float]:
-    """Return the features of the given user_song.
+    """Returns the feature values for a specific song from the dataset.
 
-    Representation Invariant:
-        - 'song' in dataset.columns
-        - all(feature in dataset.columns for feature in features)
+    Representation Invariants:
+        - `dataset` must contain a 'name' column and all features specified in `features`.
+        - All elements in `features` must be valid column names in `dataset`.
     """
 
     # filter the dataset to get the row corresponding to user_song
@@ -241,16 +296,55 @@ def get_song_features(user_song: str, features: list[str], dataset: pd.DataFrame
 
     return user_song_features
 
+
+def visualize_custom_tree(node, feature_names, class_names, dot_data=None, parent=None, depth=0):
+    """Recursively traverse the tree and create Graphviz dot representation."""
+    if dot_data is None:
+        dot_data = "digraph Tree {\n"  # indicates start of the tree representation
+
+    if node.is_leaf_node():  # if it is a leaf node, label with class name
+        class_name = class_names[node.value]
+        class_name = class_name.replace('"', '\\"')  # get rid of quotes in class name
+        dot_data += f'    node{depth} [label="{class_name}"];\n'
+        if parent is not None:  # if the node is not the root, add edge between parent node to current leaf node
+            dot_data += f'    node{parent} -> node{depth};\n'
+    else:  # if it is an internal node, label with feature names and thresholds
+        feature_name = feature_names[node.feature]
+        feature_name = feature_name.replace('"', '\\"')  # get rid of quotes in class name
+        dot_data += f'    node{depth} [label="{feature_name} <= {node.threshold:.2f}"];\n'
+        if parent is not None:
+            dot_data += f'    node{parent} -> node{depth};\n'
+
+        dot_data = visualize_custom_tree(node.left, feature_names, class_names, dot_data, parent=depth, depth=depth + 1)
+        dot_data = visualize_custom_tree(node.right, feature_names, class_names, dot_data, parent=depth, depth=depth + 1)
+
+    if depth == 0:  # once all the nodes and edges are processed
+        dot_data += "}\n"
+        return Source(dot_data)
+
+    return dot_data  # return dot data when the function is not at root level (i.e. depth > 0)
+
+
+def plot_tree(dtree, feature_names, class_names, filename='tree'):
+    """Generate the tree visualization and save to a file."""
+    print("Current working directory:", os.getcwd())
+    graph = visualize_custom_tree(dtree.root, feature_names, class_names)
+    print(graph.source)
+    graph.render(filename, format='png')
+    print(f"Tree visualization saved to {filename}.png")
+
+
 if __name__ == "__main__":
-    # HARD CODE
+    # define constants for the features used in the model and the dataset limit
     FEATURES = ['speechiness', 'tempo', 'energy', 'loudness', 'acousticness', 'danceability', 'instrumentalness']
-    LIMIT = 1000  # limit the dataset size to LIMIT rows due to memory constraints
+    LIMIT = 20000  # limit the dataset size to LIMIT rows to reduce running time during testing
 
     # DATA WRANGLING
-    df = pd.read_csv('/Users/jemimasilaen/.cache/kagglehub/datasets/bwandowando/spotify-songs-'
-                     'with-attributes-and-lyrics/versions/19/songs_with_attributes_and_lyrics.csv')
-    df = df.head(LIMIT)
+    df = pd.read_csv(
+        '/Users/jemimasilaen/.cache/kagglehub/datasets/bwandowando/spotify-songs-'
+        'with-attributes-and-lyrics/versions/19/songs_with_attributes_and_lyrics.csv')
     df = df.dropna(subset=FEATURES)
+    df = df.head(LIMIT)
 
     # generating a random index for demo purposes
     random_index = random.randint(0, LIMIT)
@@ -260,7 +354,6 @@ if __name__ == "__main__":
     ARTISTS = df.iloc[random_index]['artists']
     print(f"Searching for similar songs for '{SONG}' by {ARTISTS}")
 
-    # DEBUG
     print(f"Number of rows in the dataset: {df.shape[0]}")
 
     # convert pandas DataFrame (X) and pandas Series (y) to numpy arrays
@@ -271,6 +364,8 @@ if __name__ == "__main__":
     le = LabelEncoder()
     y_encoded = le.fit_transform(y)
 
+    class_names = le.classes_.tolist()
+
     assert np.min(y_encoded) >= 0, "y should contain non-negative values"
 
     # split the data into training and testing sets (80% train, 20% test)
@@ -280,6 +375,9 @@ if __name__ == "__main__":
     clf = DecisionTree(min_samples_split=10, max_depth=5)
     clf.fit(X_train, y_train)
 
+    # (Optional) visualize tree
+    plot_tree(dtree=clf, feature_names=FEATURES, class_names=class_names, filename="song_recommendation_tree")
+
     # get song recommendations
     recommended_songs = recommend_songs(dtree=clf, user_song=SONG, features=FEATURES, dataset=df, top_n=5)
 
@@ -287,6 +385,7 @@ if __name__ == "__main__":
     for song, artists, _ in recommended_songs:
         print(f"Song: {song}, Artist: {artists}")
 
-    # this is optional but see the accuracy of the model (depends on the dataset which explains why it's low)
+    # (Optional) evaluate the accuracy of the model on the test set
+    # the accuracy is based on the dataset's constraints
     accuracy = accuracy_score(y_test, clf.predict(X_test))
     print(f"Model Accuracy: {accuracy * 100:.2f}%")
