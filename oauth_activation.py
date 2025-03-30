@@ -114,7 +114,7 @@ def home():
         auth_url = authenticator.get_auth_url()
         return redirect(auth_url)
 
-    return redirect(url_for("userdata"))
+    return redirect(url_for("success"))
 
 
 @app.route("/callback")
@@ -124,10 +124,10 @@ def callback():
     authenticator.setup_auth_manager()
     authenticator.get_token(request.args["code"])
     
-    return redirect(url_for("userdata"))
+    return redirect(url_for("success"))
 
-@app.route("/userdata")  # for the sake of testing out features, need to fix this up so we can make it to a useful page (perhaps profile data recap, just basic info)
-def userdata():
+@app.route("/success")
+def success():
     """User data route that retrieves and displays user information."""
     authenticator = SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
     authenticator.setup_auth_manager()
@@ -136,14 +136,7 @@ def userdata():
         auth_url = authenticator.get_auth_url()
         return redirect(auth_url)
 
-    spotify = Spotify(auth_manager=authenticator.auth_manager)
-    user = spotify.current_user()
-    top_tracks = spotify.current_user_top_tracks(limit=10)["items"]
-
-    return jsonify({
-        "display_name": user["display_name"],
-        "top_tracks": [{"name": t["name"], "popularity": t["popularity"]} for t in top_tracks]
-    })
+    return # TODO: Add success page content here telling the user they can go back to the application
 
 @app.route("/logout")
 def logout():
