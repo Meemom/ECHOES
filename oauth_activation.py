@@ -144,9 +144,49 @@ def success():
         if not authenticator.validate_token():
             auth_url = authenticator.get_auth_url()
             return redirect(auth_url)
-
+        
         # Return a simple HTML page informing the user they can return to the app
-        return # TODO: html code here saying user can return to the app
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>ECHOES - Authentication Successful</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #121212;
+                    color: white;
+                    text-align: center;
+                    padding: 50px;
+                    margin: 0;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background-color: #242424;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                }
+                h1 {
+                    color: #1DB954;
+                }
+                p {
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Authentication Successful!</h1>
+                <p>You have successfully authenticated with Spotify.</p>
+                <p>You can now close this window and return to the ECHOES application.</p>
+                <p><small>If the application doesn't respond, try clicking the login button again.</small></p>
+            </div>
+        </body>
+        </html>
+        """
         
     except Exception as e:
         print(f"Success route error: {str(e)}")

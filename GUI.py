@@ -46,12 +46,14 @@ class ECHOESgui(CTk):
 
         # create tabs
         self.login_tab = self.tabview.add("Login")
-        self.recommendation_tab = self.tabview.add("Recommendations")
+        self.song_based_reccomendations = self.tabview.add("Song-based Recommendations")
+        self.user_based_reccomendations = self.tabview.add("User-based Recommendations")
         self.user_data_tab = self.tabview.add("User Data")
         self.tabview.set("Login")
 
         self.create_login_tab()
-        self.create_recommendation_tab()
+        self.create_song_based_recommendation_tab()
+        self.create_user_based_recommendation_tab()
         self.create_user_data_tab()
     
     def create_login_tab(self):
@@ -89,25 +91,42 @@ class ECHOESgui(CTk):
             )
         self.login_button.pack(pady=25)
 
-    def create_recommendation_tab(self):
-        """Create song recommendation tab UI"""
+    def create_song_based_recommendation_tab(self):   # requires an input
+        """Create song based recommendation tab UI"""
+        # TODO: create input field for song name
         label = CTkLabel(
-            self.recommendation_tab, 
-            text="Your Song Recommendations", 
+            self.song_based_reccomendations, 
+            text="Please login to view this page.", 
             text_color="white", 
-            font=("Helvetica", 20)
+            font=("Coolvetica", 40),
+            fg_color="#2FA572",
+            corner_radius=20
             )
-        label.pack(pady=20)
+        label.pack(pady=165)
+    
+    def create_user_based_recommendation_tab(self):  # doesnt require an input
+        """Create user-based recommendation tab UI"""
+        label = CTkLabel(
+            self.user_based_reccomendations, 
+            text="Please login to view this page.", 
+            text_color="white", 
+            font=("Coolvetica", 40),
+            fg_color="#2FA572",
+            corner_radius=20
+            )
+        label.pack(pady=165)
 
     def create_user_data_tab(self):
         """Create user data tab UI"""
         self.user_data_label = CTkLabel(
             self.user_data_tab,
-            text="Fetching user data...",
+            text="Please login to view this page.",
             text_color="white",
-            font=("Helvetica", 20)
+            font=("Coolvetica", 40),
+            fg_color="#2FA572",
+            corner_radius=20
             )
-        self.user_data_label.pack(pady=20)
+        self.user_data_label.pack(pady=165)
 
     def fetch_user_data(self):
         """Fetch user data from Spotify API"""
@@ -154,19 +173,19 @@ class ECHOESgui(CTk):
         self.login_button.configure(text="Logging in...", state="disabled")
         self.request_label.configure(text="Authorization in progress. Please check your browser.")
         
-        # Check authentication status periodically
+        # check authentication status periodically
         self.check_auth_status()
 
     def check_auth_status(self, attempts=0, max_attempts=5):
         """Check if authentication was successful"""
         if attempts >= max_attempts:
-            # After several attempts, reset login button and show failure message
+            # after several attempts, reset login button and show failure message
             self.login_button.configure(text="Login", state="normal")
             self.request_label.configure(text="Login timed out. Please try again.")
             return
         
         try:
-            # Try to create a SpotifyOAuth instance and get a valid token
+            # try to create a SpotifyOAuth instance and get a valid token
             auth_manager = SpotifyOAuth(
                 client_id=oauth.CLIENT_ID,
                 client_secret=oauth.CLIENT_SECRET,
@@ -178,26 +197,35 @@ class ECHOESgui(CTk):
             token_info = auth_manager.get_cached_token()
             
             if token_info and not auth_manager.is_token_expired(token_info):
-                # Successfully authenticated
+                # successfully authenticated
                 self.sp = spotipy.Spotify(auth_manager=auth_manager)
                 self.authenticated = True
-                self.switch_to_recommendations()
+                self.switch_to_user_based_recommendations()
                 return
             
-            # Not authenticated yet, check again after a delay
+            # not authenticated yet, check again after a delay
             self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
             
-        except Exception as e:
-            # Handle any exceptions during authentication check
+        except Exception as e:  # TODO: check efficiency of this
+            # handle any exceptions during authentication check
             print(f"Auth check error: {str(e)}")
             self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
 
-    def switch_to_recommendations(self):
+    def switch_to_song_recommendations(self):
         """Switch to the recommendations tab after login"""
         if self.authenticated:
-            self.tabview.set("Recommendations")
+            self.tabview.set("Song-based Recommendations")
             self.login_button.configure(text="Logged in.", state="disabled")
             self.request_label.configure(text="Authentication was successful!")
+
+    def switch_to_user_based_recommendations(self):
+        """Switch to the user-based recommendations tab and fetch data"""
+        if self.authenticated:
+            self.tabview.set("User-based Recommendations")
+            self.fetch_user_data()
+        else:
+            self.tabview.set("Login")
+            self.request_label.configure(text="Please login to continue.")
     
     def switch_to_user_data(self):
         """Switch to the user data tab and fetch user data"""
@@ -207,7 +235,6 @@ class ECHOESgui(CTk):
         else:
             self.tabview.set("Login")
             self.request_label.configure(text="Please login to continue.")
-
 
 # main loop, runs the actual desktop application
 if __name__ == "__main__":
