@@ -164,28 +164,28 @@ class DecisionTree:
 def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str], dataset: pd.DataFrame, top_n=5):
     """Recommend songs based on the user's songs features using cosine similarity."""
 
-    # Find user_song features in the dataset
+    # find user_song features in the dataset
     user_song_features = get_song_features(user_song, features, dataset)
 
-    # Predict the leaf node of the decision tree
+    # get the leaf nodes of the decision
     user_song_features_df = pd.DataFrame([user_song_features])
     leaf_node_prediction = dtree.predict(user_song_features_df.to_numpy())[0]
 
-    # Use LabelEncoder to map the predicted label (leaf node) back to the song name
+    # using LabelEncoder to map the leaf node back to the song name
     le = LabelEncoder()
-    le.fit(dataset['name'])  # Fit the encoder on the dataset's song names
+    le.fit(dataset['name'])  # fit the encoder on the dataset's song names
     predicted_song_name = le.inverse_transform([leaf_node_prediction])[0]
 
-    # Extract songs that belong to the predicted leaf node
+    # extract songs that belong to the predicted leaf node
     leaf_node_songs = dataset[dataset['name'] == predicted_song_name]
 
-    # Remove duplicate songs in the leaf node
+    # remove duplicates
     leaf_node_songs = leaf_node_songs.drop_duplicates(subset='name')
 
     if len(leaf_node_songs) == 0:
         return "No songs found in this leaf node."
 
-    # Calculate cosine similarity
+    # begin finding similar songs
     similarities = []
     user_song_vector = np.array(list(user_song_features.values())).reshape(1, -1)
 
@@ -194,9 +194,9 @@ def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str], da
         song_features_values = {k: v for k, v in song_features.items() if k in user_song_features}
         song_vector = np.array(list(song_features_values.values())).reshape(1, -1)
 
-        similarity = calculate_cosine_similarity(user_song_vector, song_vector)  # Use the helper function
-        song_name = row['name'].strip()  # Ensure there is no extra whitespace in the song name
-        artist_name = row['artists']  # Adjust according to the dataset column name for artist
+        similarity = calculate_cosine_similarity(user_song_vector, song_vector)  # using helper function below
+        song_name = row['name'].strip()  # ensure no extra whitespace
+        artist_name = row['artists']
         similarities.append((song_name, artist_name, similarity))  # append song name, artist, and similarity
 
     # rank and filter by similarity
@@ -276,17 +276,17 @@ if __name__ == "__main__":
     # split the data into training and testing sets (80% train, 20% test)
     X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=1234)
 
-    # Initialize and train the DecisionTree
+    # initialize the decision tree
     clf = DecisionTree(min_samples_split=10, max_depth=5)
     clf.fit(X_train, y_train)
 
-    # Get final song recommendations
+    # get song recommendations
     recommended_songs = recommend_songs(dtree=clf, user_song=SONG, features=FEATURES, dataset=df, top_n=5)
 
     print("Recommended songs:")
     for song, artists, _ in recommended_songs:
         print(f"Song: {song}, Artist: {artists}")
 
-    # To see the accuracy of the model
+    # this is optional but see the accuracy of the model (depends on the dataset which explains why it's low)
     accuracy = accuracy_score(y_test, clf.predict(X_test))
     print(f"Model Accuracy: {accuracy * 100:.2f}%")
