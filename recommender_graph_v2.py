@@ -10,7 +10,7 @@ import csv
 from typing import Any, Optional
 
 from spotipy import Spotify
-import oauth_activation
+from spotipy.exceptions import SpotifyException
 
 
 class _UserVertex:
@@ -327,7 +327,10 @@ def _load_curr_user_songs(spotify_info: Spotify, graph: Graph) -> bool:
     Loads the current user's songs into the graph using information obtained from the given spotify_info.
     Returns True if the current user has saved songs and returns False otherwise.
     """
-    curr_user_tracks = spotify_info.current_user_saved_tracks(limit=50)
+    try:
+        curr_user_tracks = spotify_info.current_user_saved_tracks(limit=50)
+    except SpotifyException:
+        return False
 
     if curr_user_tracks is None:
         return False
@@ -413,22 +416,12 @@ if __name__ == '__main__':
     import doctest
     doctest.testmod(verbose=True)
 
-    CLIENT_ID = "d4438951382c4c05bceb265fd8de11ec"
-    CLIENT_SECRET = "f6890c57cc42499581c685cd79dadded"
-    REDIRECT_URI = "http://localhost:8888/callback"
-    SCOPE = "user-library-read"
-    CACHE_PATH = ".spotify_cache"
-
-    auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
-    auth.setup_auth_manager()
-    spot_test = auth.authenticate()
-
-    my_graph = load_song_listening_graph('datasets/spotify_dataset.csv', spot_test,
-                                         "datasets/user_song_data.csv")
+    # my_graph = load_song_listening_graph('datasets/spotify_dataset.csv', None,
+    #                                      "datasets/user_song_data.csv")
 
     import python_ta
     python_ta.check_all(config={
-        'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing"],
+        'extra-imports': ["spotipy", "__future__", "csv", "typing", "spotify.exceptions"],
         'allowed-io': ["load_song_listening_graph", "_load_csv_user_songs"],
         'max-line-length': 120,
         'max-nested-blocks': 4
