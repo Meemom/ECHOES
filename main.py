@@ -316,7 +316,7 @@ class ECHOESgui(CTk):
     def fetch_user_recommendations(self):
         """Fetch user-based recommendations from Spotify API"""
         if not self.authenticated or self.sp is None:
-            self.user.based_recommendations_label.configure(text="User not authenticated. Please login.")
+            self.user_based_recommendations_label.configure(text="User not authenticated. Please login.")
             return
         try:
             self.user_based_recommendations_label.configure(text="Finding your echoes...")
