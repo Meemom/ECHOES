@@ -218,10 +218,8 @@ class Graph:
         ['user_3']
         """
         lst_so_far = [similar_user]
-        song_ids_seen = {}
 
-        if similar_user in seen:
-            song_ids_seen = {song_info[0] + song_info[1] for song_info in seen[similar_user]}
+        song_ids_seen = {song_info[0] + song_info[1] for user in seen for song_info in seen[user]}
 
         for song in self._user_vertices[similar_user].neighbours:
             if (song not in self._user_vertices[self.user_vertex_id].neighbours and
@@ -230,7 +228,8 @@ class Graph:
 
         return lst_so_far
 
-    def get_recommendations(self, seen: dict[str, list[tuple[str, str]]], limit: int = 5) -> list[tuple[str, str]]:
+    def get_recommendations(self, seen: dict[str, list[tuple[str, str]]], limit: int = 5) -> list[str
+                                                                                                  | tuple[str, str]]:
         """
         This method returns recommendations to the user based on their listened to songs.
         The method returns a list of tuples of two string: one is the song title, the other is the song url.
@@ -257,12 +256,29 @@ class Graph:
         Preconditions:
             - limit >= 0
 
-        example return formatting for GUI:
-        SONG RECOMMENDATONS:
-        You may like:
-        - song
-        - song
-        - song
+        >>> graph = Graph()
+        >>> graph.add_user_vertex("user_1", True)
+        >>> graph.add_user_vertex("user_2", False)
+        >>> graph.add_user_vertex("user_3", False)
+        >>> graph.add_song_vertex("Let Down", "Radiohead")
+        >>> graph.add_song_vertex("Kiss of Life", "Sade")
+        >>> graph.add_song_vertex("Sunday", "The Cranberries")
+        >>> graph.add_song_vertex("Dreams", "The Cranberries")
+        >>> graph.add_edge("user_1", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_1", "Let Down", "Radiohead")
+        >>> graph.add_edge("user_2", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_2", "Kiss of Life", "Sade")
+        >>> graph.add_edge("user_3", "Kiss of Life", "Sade")
+        >>> graph.add_edge("user_3", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_3", "Let Down", "Radiohead")
+        >>> graph.add_edge("user_3", "Sunday", "The Cranberries")
+        >>> recommendations_1 = graph.get_recommendations({})
+        >>> set(recommendations_1) == {'user_3', ('Kiss of Life', 'Sade'), ('Sunday', 'The Cranberries')}
+        True
+        >>> recommendations_1[0] == 'user_3'
+        True
+        >>> graph.get_recommendations({'user_3': [('Kiss of Life', 'Sade'), ('Sunday', 'The Cranberries')]})
+        ['user_2']
         """
         similar_user = self._get_most_similar_user(seen)
         if similar_user == self.user_vertex_id:
