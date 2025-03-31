@@ -73,7 +73,7 @@ class ECHOESgui(CTk):
             self.login_tab,
             image=logo_ctk,
             text=""
-            )
+        )
         logo_label.pack(pady=75)
 
         welcome_label = CTkLabel(
@@ -81,14 +81,15 @@ class ECHOESgui(CTk):
             text="Welcome!",
             text_color="white",
             font=("Coolvetica", 40)
-            )
+        )
         welcome_label.pack(pady=0)
 
         self.request_label = CTkLabel(
             self.login_tab,
             text="Please login to continue",
             text_color="white",
-            font=("Helvetica", 20))
+            font=("Helvetica", 20)
+        )
         self.request_label.pack(pady=0)
 
         self.login_button = CTkButton(
@@ -99,7 +100,7 @@ class ECHOESgui(CTk):
             width=512,
             corner_radius=32,
             font=("Coolvetica", 20)
-            )
+        )
         self.login_button.pack(pady=25)
 
     def create_song_based_recommendation_tab(self):
@@ -111,7 +112,7 @@ class ECHOESgui(CTk):
             font=("Coolvetica", 20),
             bg_color="#2FA572",
             corner_radius=20
-            )
+        )
         self.chosen_song_label.pack(pady=(10, 5))
 
         # label to display the chosen song name
@@ -165,7 +166,7 @@ class ECHOESgui(CTk):
             font=("Coolvetica", 40),
             fg_color="#2FA572",
             corner_radius=20
-            )
+        )
         self.user_based_recommendations_label.pack(pady=10)
 
     def create_user_data_tab(self):
@@ -177,7 +178,7 @@ class ECHOESgui(CTk):
             font=("Coolvetica", 40),
             fg_color="#2FA572",
             corner_radius=20
-            )
+        )
         self.user_data_label.pack(pady=10)
 
     def fetch_user_data(self):
@@ -428,7 +429,7 @@ class ECHOESgui(CTk):
         server_thread = threading.Thread(
             target=self.start_oauth_server,
             daemon=True
-            )
+        )
         server_thread.start()
 
         authenticator = oauth.SpotifyAuthentication(
@@ -436,7 +437,7 @@ class ECHOESgui(CTk):
             oauth.CLIENT_SECRET,
             oauth.REDIRECT_URI,
             oauth.SCOPE
-            )
+        )
         authenticator.setup_auth_manager()
         auth_url = authenticator.get_auth_url()
         webbrowser.open(auth_url)
