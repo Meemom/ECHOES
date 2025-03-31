@@ -19,6 +19,19 @@ import random
 class ECHOESgui(CTk):
     """
     This class handles the GUI for the ECHOES application.
+
+    Instance Attributes:
+    - sp: The Spotify client instance.
+    - authenticated: Boolean indicating if the user is authenticated.
+    - seen: Dictionary to store user song data.
+    - login_tab: The login tab in the tabview.
+    - song_based_recommendations: The song-based recommendations tab in the tabview.
+    - user_based_recommendations: The user-based recommendations tab in the tabview.
+    - user_data_tab: The user data tab in the tabview.
+    - tabview: The tabview widget to handle multiple pages.
+    - LIMIT: The limit for the dataset size to reduce running time during testing.
+    - song_recommendation_features: The features used for song recommendations.
+
     """
     def __init__(self):
         # initialize the GUI

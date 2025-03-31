@@ -21,6 +21,14 @@ app.secret_key = os.urandom(64)
 class SpotifyAuthentication:
     """
     Handles Spotify authentication using Flask session for caching tokens.
+    
+    Instance Attributes:
+    - client_id: The Spotify client ID.
+    - client_secret: The Spotify client secret.
+    - redirect_uri: The redirect URI for the application.
+    - scope: The scope of access requested from the user.
+    - auth_manager: The SpotifyOAuth manager instance.
+    - spotify: The Spotify client instance.
     """
     def __init__(self, client_id: str, client_secret: str, redirect_uri: str, scope: str) -> None:
         """Initializes the SpotifyAuthentication class with API credentials."""
