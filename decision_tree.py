@@ -149,7 +149,7 @@ class DecisionTree:
         n = len(y_data)
         n_left, n_right = len(left_idxs), len(right_idxs)
         entropy_left, entropy_right = self._entropy(y_data[left_idxs]), self._entropy(y_data[right_idxs])
-        child_entropy = (n_left/n) * entropy_left + (n_right/n) * entropy_right
+        child_entropy = (n_left / n) * entropy_left + (n_right / n) * entropy_right
 
         # calculate information gain
         information_gain = parent_entropy - child_entropy
@@ -385,7 +385,7 @@ if __name__ == "__main__":
     assert np.min(y_encoded) >= 0, "y should contain non-negative values"
 
     # split the data into training and testing sets (80% train, 20% test)
-    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=1011201502)
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=4321)
 
     # initialize the decision tree
     clf = DecisionTree(min_samples_split=2, max_depth=7)
