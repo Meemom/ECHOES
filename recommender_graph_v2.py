@@ -235,9 +235,7 @@ class Graph:
         The method returns a list of tuples of two string: one is the song title, the other is the song url.
         Three nested lists of tuples -- going from most simiular songs
 
-        Returns an empty list if there are no similar users
-
-        TODO - doctests
+        Returns an empty list if there are no similar songs
         TODO - preconditions
 
 
@@ -278,13 +276,15 @@ class Graph:
         >>> recommendations_1[0] == 'user_3'
         True
         >>> graph.get_recommendations({'user_3': [('Kiss of Life', 'Sade'), ('Sunday', 'The Cranberries')]})
-        ['user_2']
+        []
         """
         similar_user = self._get_most_similar_user(seen)
-        if similar_user == self.user_vertex_id:
-            return []
 
         recommendation_results = self._get_song_recs(similar_user, seen)
+
+        if similar_user == self.user_vertex_id or len(recommendation_results) == 1:
+            return []
+
         return recommendation_results[0:limit]
 
 
