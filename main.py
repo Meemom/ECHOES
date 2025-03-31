@@ -285,7 +285,7 @@ class ECHOESgui(CTk):
     def fetch_more_user_recommendations(self):
         """Fetch additional recommendations and update the label when a user presses the "Give me more suggestions" button."""
         try:
-            graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp)
+            graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp, user_data="datasets/user_song_data.csv")
             new_recommendations = graph.get_recommendations(seen=self.seen)
 
             # extract songs + artists then format
@@ -321,7 +321,7 @@ class ECHOESgui(CTk):
             for widget in self.user_based_recommendations.winfo_children():
                 widget.destroy()
 
-            graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp)
+            graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp, user_data="datasets/user_song_data.csv")
             recommendations = graph.get_recommendations(seen=self.seen)
             recommendations_text = "\n".join(f"Song: {song}, Artist: {artist}" for item in recommendations if isinstance(item, tuple) for song, artist in [item])
 
