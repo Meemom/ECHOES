@@ -4,16 +4,15 @@ Date: 2025-03-30
 Desc: This file contains the code for the recommnder graph element of our project. Included in this
 file is the _Vertex and Graph classes that we will be using in our main function.
 
-- modify the song class from the Spotipy class in decision trees
 """
 from __future__ import annotations
-from spotipy import Spotify
-import oauth_activation
 import csv
 from typing import Any, Optional
+
+from spotipy import Spotify
 import pandas as pd
 
-import networkx as nx
+import oauth_activation
 
 
 class _Vertex:
@@ -21,7 +20,7 @@ class _Vertex:
     This class defines the vertex of the graph for the spotipy recommender
     """
     item: Any
-    neighbours: set[_Vertex]
+    neighbours: set[_SongVertex]
 
     def __init__(self, item: Any) -> None:
         """
@@ -37,6 +36,7 @@ class _SongVertex(_Vertex):
     songs of the graph
     """
     artist: str
+    neighbours: set[_Vertex]
 
     def __init__(self, song_title: str, artist: str) -> None:
         """
@@ -57,14 +57,16 @@ class Graph:
     user_vertex_id: Optional[str]
     _user_vertices: dict[Any, _Vertex]
     _song_vertices: dict[Any, _SongVertex]
+    spotify_info: Optional[Spotify]
 
-    def __init__(self) -> None:
+    def __init__(self, spotify_info: Optional[Spotify] = None) -> None:
         """
         The initializer method for Graph
         """
         self.user_vertex_id = None
         self._song_vertices = {}
         self._user_vertices = {}
+        self.spotify_info = spotify_info
 
     def add_edge(self, username: str, song_title: str, artist: str) -> None:
         """
@@ -161,6 +163,11 @@ class Graph:
         >>> graph.add_edge("user_3", "Let Down", "Radiohead")
         >>> graph._get_most_similar_user()
         'user_3'
+        >>> graph_2 = Graph()
+        >>> graph_2.add_user_vertex("user_1", True)
+        >>> graph_2.add_user_vertex("user_2", False)
+        >>> graph_2._get_most_similar_user()
+        'user_1'
         """
         connected_users = self._get_connected_users()
         most_similar_user = self.user_vertex_id
@@ -169,9 +176,10 @@ class Graph:
         for user_id in connected_users:
             # if the number of connections is the same as the number of neighbours of the current user's id
             # then there are no new recommendations to be
-            if (len(self._user_vertices[self.user_vertex_id].neighbours) ==
-                    len(self._user_vertices[user_id].neighbours) and
-                    len(self._user_vertices[self.user_vertex_id].neighbours) == connected_users[user_id][0]):
+            if (len(self._user_vertices[self.user_vertex_id].neighbours)
+                    == len(self._user_vertices[user_id].neighbours)
+                    and len(self._user_vertices[self.user_vertex_id].neighbours)
+                    == connected_users[user_id][0]):
                 continue
             else:
                 similarity_score = connected_users[user_id][0] / connected_users[user_id][1]
@@ -183,81 +191,78 @@ class Graph:
 
     def _get_song_recs(self, similar_user: str) -> list[list[str]]:
         """
-        This method returns a list of three song ids per similar user which
+        This method returns a set of three song ids per similar user which
         are not currently in the user's currently saved songs (neighbours)
         - This includes URL for the songs
 
-        Preconditions:
-            -
+        If a URL for the song cannot be found at recommendation i, then the lst[i][1] == ''
 
-        TODO - implement fully
-        TODO - doctests
         TODO - preconditions
-        """
+        Preconditions:
+            - similar_user in self._user_vertices
+            - similar_user != self.user_vertex_id
 
-    def get_recommendations(self, seen: set) -> list[list[tuple]]:
+        >>> graph = Graph()
+        >>> graph.add_user_vertex("user_1", True)
+        >>> graph.add_user_vertex("user_3", False)
+        >>> graph.add_song_vertex("Let Down", "Radiohead")
+        >>> graph.add_song_vertex("Kiss of Life", "Sade")
+        >>> graph.add_song_vertex("Dreams", "The Cranberries")
+        >>> graph.add_edge("user_1", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_1", "Let Down", "Radiohead")
+        >>> graph.add_edge("user_3", "Kiss of Life", "Sade")
+        >>> graph.add_edge("user_3", "Dreams", "The Cranberries")
+        >>> graph.add_edge("user_3", "Let Down", "Radiohead")
+        >>> graph._get_song_recs("user_3")
+        [['Kiss of Life by Sade', '']]
+        """
+        lst_so_far = []
+        for song in self._user_vertices[similar_user].neighbours:
+            sublist = []
+            if song not in self._user_vertices[self.user_vertex_id].neighbours:
+                sublist.append(song.item + " by " + song.artist)
+
+                if self.spotify_info is not None:
+                    results = self.spotify_info.search(q='track:' + song.item + ' artist:' + song.artist,
+                                                       type='track', limit=1)
+                    # checks to see if we get back a value
+                    if results['tracks']['items']:
+                        # gets the URL to the
+                        sublist.append(results['tracks']['items'][0]['external_urls']['spotify'])
+                else:
+                    sublist.append('')
+
+                lst_so_far.append(sublist)
+
+        return lst_so_far
+
+    def get_recommendations(self, limit: int = 3) -> list[list[str]]:
         """
         This method returns recommendations to the user based on their listened to songs.
-        The method returns a tuple of two string: one is the song title, the other is the song url.
+        The method returns a list of tuples of two string: one is the song title, the other is the song url.
         Three nested lists of tuples -- going from most simiular songs
 
-        TODO - implement fully
+        Returns an empty list if there are no similar users
+
         TODO - doctests
+        TODO - preconditions
+
+        Preconditions:
+            - limit >= 0
 
         example return formatting for GUI:
         SONG RECOMMENDATONS:
-        Most similar:
-        - song
-        - song
-        - song
-
-        Second most similar:
-        - song
-        - song
-        - song
-
-        Third most similar:
+        You may like:
         - song
         - song
         - song
         """
+        similar_user = self._get_most_similar_user()
+        if similar_user == self.user_vertex_id:
+            return []
 
-    def to_networkx(self, max_vertices: int = 5000) -> nx.Graph:
-        """
-        TODO - make this my own -- create an implementation such that it highlights the connected
-        # todo (cont'd) users and their songs -- this shows all the possible results for recommendations
-        Convert this graph into a networkx Graph.
-
-        max_vertices specifies the maximum number of vertices that can appear in the graph.
-        (This is necessary to limit the visualization output for large graphs.)
-
-        Note that this method is provided for you, and you shouldn't change it.
-        """
-        graph_nx = nx.Graph()
-        all_vertices = self._song_vertices | self._user_vertices
-        for v in all_vertices.values():
-            if isinstance(v, _SongVertex):
-                node_type = 'book'
-            else:
-                node_type = 'review'
-
-            graph_nx.add_node(v.item, kind=node_type)
-
-            for u in v.neighbours:
-                if graph_nx.number_of_nodes() < max_vertices:
-                    if isinstance(u, _SongVertex):
-                        node_type = 'book'
-                    else:
-                        node_type = 'review'
-                    graph_nx.add_node(u.item, kind=node_type)
-
-                if u.item in graph_nx.nodes:
-                    graph_nx.add_edge(v.item, u.item)
-
-            if graph_nx.number_of_nodes() >= max_vertices:
-                break
-
-        return graph_nx
+        recommendation_results = self._get_song_recs(similar_user)
+        return recommendation_results[0:limit]
 
 
 def _load_curr_user_songs(spotify_info: Spotify, graph: Graph) -> bool:
@@ -265,9 +270,6 @@ def _load_curr_user_songs(spotify_info: Spotify, graph: Graph) -> bool:
     Loads the current user's songs into the graph
     """
     curr_user_tracks = spotify_info.current_user_saved_tracks(limit=50)
-
-    import pprint
-    pprint.pprint(curr_user_tracks['items']['track'])
 
     if curr_user_tracks is None:
         return False
@@ -302,7 +304,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
 
     TODO - pandas sampling
     """
-    graph_so_far = Graph()
+    graph_so_far = Graph(spotify_info)
     users_so_far = set()
 
     # load songs and associated listeners
@@ -329,7 +331,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
             graph_so_far.add_edge(row[0], row[2], row[1])
             limit += 1
 
-    # _load_hardcoded_user_songs(graph_so_far) if the spot_test is not working
+    # _load_hardcoded_user_songs(graph_so_far) if the spot_test is not working -- DEMO WITHOUT OAUTH
     if spotify_info is None:
         _load_hardcoded_user_songs(graph_so_far)
     else:
@@ -340,15 +342,29 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
 
 
 if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
+
     CLIENT_ID = "d4438951382c4c05bceb265fd8de11ec"
     CLIENT_SECRET = "f6890c57cc42499581c685cd79dadded"
     REDIRECT_URI = "http://localhost:8888/callback"
     SCOPE = "user-library-read"
     CACHE_PATH = ".spotify_cache"
 
-    auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
-    auth.setup_auth_manager()
-    spot_test = auth.authenticate()
-    # spot_test = None
+    # try:
+    # auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    # auth.setup_auth_manager()
+    # spot_test = auth.authenticate()
+    # except ():
+    spot_test = None
 
     my_graph = load_song_listening_graph('spotify_dataset.csv', spot_test)
+
+    import python_ta
+    python_ta.check_all(config={
+        'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing",
+                          "pandas", "networkx"],
+        'allowed-io': ["load_song_listening_graph", "_load_hardcoded_user_songs"],
+        'max-line-length': 120,
+        'max-nested-blocks': 4
+    })
