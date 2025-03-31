@@ -236,7 +236,7 @@ class Graph:
 
         return lst_so_far
 
-    def get_recommendations(self, limit: int = 3) -> list[list[str]]:
+    def get_recommendations(self, limit: int = 5) -> list[list[str]]:
         """
         This method returns recommendations to the user based on their listened to songs.
         The method returns a list of tuples of two string: one is the song title, the other is the song url.
