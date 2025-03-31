@@ -2,26 +2,16 @@
 CSC111 Project 2: Spotify Recommendation System - GUI Module
 This module handles the login, user data page, recomendations page and OAuth authentication.
 """
-
-import tkinter as tk
+import python_ta
 from customtkinter import *
 from PIL import Image
 import spotipy
 import threading
 import webbrowser
 import oauth_activation as oauth
-from flask import Flask
 from spotipy import SpotifyOAuth
-
-# logo image files
-icon = Image.open("images/icon.png")
-icon.save("images/icon.ico", format="ICO")
-logo = Image.open("images/logo.png")
-logo_ctk = CTkImage(light_image=logo, size=(512,125))
-
-# setting theme and appearance
-set_appearance_mode("dark")
-set_default_color_theme("green")
+import recommender_graph as user_recs
+import updated_decision_tree as song_recs
 
 class ECHOESgui(CTk):
     """
@@ -31,6 +21,11 @@ class ECHOESgui(CTk):
         # initialize the GUI
         super().__init__()
 
+        # setting theme and appearance
+        set_appearance_mode("dark")
+        set_default_color_theme("green")
+
+        # initialize the main window
         self.title("ECHOES")
         self.geometry("600x480")
         self.resizable(False, False)
@@ -58,6 +53,7 @@ class ECHOESgui(CTk):
     
     def create_login_tab(self):
         """Create login tab UI"""
+        
         logo_label = CTkLabel(
             self.login_tab, 
             image=logo_ctk, 
@@ -130,9 +126,9 @@ class ECHOESgui(CTk):
 
     def fetch_user_data(self):
         """Fetch user data from Spotify API"""
-        if not self.authenticated or self.sp is None:
-            self.user.data_label.configure(text="User not authenticated. Please login.")
-            return
+        # if not self.authenticated or self.sp is None:
+        #     self.user.data_label.configure(text="User not authenticated. Please login.")
+        #     return
         try:
             self.user_data_label.configure(text="Fetching your top tracks and artists...")
             self.update()
@@ -223,21 +219,32 @@ class ECHOESgui(CTk):
 
     def fetch_song_recommendations(self):
         """Fetch song-based recommendations from Spotify API"""
-        if not self.authenticated or self.sp is None:
-            self.song_based_recomendations_label.configure(text="User not authenticated. Please login.")
-            return
+        # if not self.authenticated or self.sp is None:
+        #     self.song_based_recomendations_label.configure(text="User not authenticated. Please login.")
+        #     return
         try:
             self.song_based_recomendations_label.configure(text="Please enter a song name below.")
             self.update()
 
+            for widget in self.song_based_recomendations.winfo_children():
+                widget.destroy()
+
+            self.song_based_recomendations_label = CTkLabel(
+                master=self.song_based_recomendations,
+                text="Song-based Recommendations",
+                font=("Coolvetica", 25),
+                fg_color="#2FA572",
+                text_color="white",
+                corner_radius=20
+            )
         except Exception as e:
             self.song_based_recomendations_label.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
 
     def fetch_user_recommendations(self):
         """Fetch user-based recommendations from Spotify API"""
-        if not self.authenticated or self.sp is None:
-            self.user_based_recomendations_label.configure(text="User not authenticated. Please login.")
-            return
+        # if not self.authenticated or self.sp is None:
+        #     self.user.based_recomendations_label.configure(text="User not authenticated. Please login.")
+        #     return
         try:
             self.user_based_recommendations_label.configure(text="Finding your echoes...")
             self.update()
@@ -245,6 +252,10 @@ class ECHOESgui(CTk):
             # clear any existing widgets in the user_based_recomendations tab
             for widget in self.user_based_recomendations.winfo_children():
                 widget.destroy()
+
+            graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp)
+            recommendations = graph.get_recommendations()
+            recommendations_text = "\n".join(recommendations) if recommendations else "No Recommendations Found"
 
             # update user_based_recomendations_label with new text
             self.user_based_recomendations_label = CTkLabel(
@@ -302,38 +313,48 @@ class ECHOESgui(CTk):
             most_similar_frame.pack_propagate(False)
 
             # you may also like frame
-            you_may_also_like_frame = CTkScrollableFrame(
-                master=main_frame,
-                width=520,
-                height=190,
-                corner_radius=20,
-                fg_color="#93D67C"
-            )
-            you_may_also_like_frame.pack(fill="x", padx=5, pady=5)
-            you_may_also_like_frame.pack_propagate(False)
+            # you_may_also_like_frame = CTkScrollableFrame(
+            #     master=main_frame,
+            #     width=520,
+            #     height=190,
+            #     corner_radius=20,
+            #     fg_color="#93D67C"
+            # )
+            # you_may_also_like_frame.pack(fill="x", padx=5, pady=5)
+            # you_may_also_like_frame.pack_propagate(False)
 
             # labels TODO: complete commands (text) for both labels
+            title_label = CTkLabel(
+                master=most_similar_frame,
+                text="Most Similar Songs",
+                text_color="#535454",
+                bg_color="#93D67C",
+                font=("Coolvetica", 25),
+                justify="center",
+                anchor="center"
+            )
+            title_label.pack(fill="both", padx=10, pady=10)
+
             most_similar_label = CTkLabel(
                 master=most_similar_frame,
-                text="Most Similar Recommendations",
+                text=recommendations_text,
                 text_color="#535454",
                 font=("Coolvetica", 25),
-                fg_color=None,
                 justify="center",
                 anchor="center"
             )
             most_similar_label.pack(fill="both", padx=10, pady=10)
 
-            you_may_also_like_lavel = CTkLabel(
-                master=you_may_also_like_frame,
-                text="You May Also Like",
-                text_color="#535454",
-                font=("Coolvetica", 25),
-                fg_color=None,
-                justify="center",
-                anchor="center"
-            )
-            you_may_also_like_lavel.pack(fill="both", pady=10)
+            # you_may_also_like_lavel = CTkLabel(
+            #     master=you_may_also_like_frame,
+            #     text="You May Also Like",
+            #     text_color="#535454",
+            #     font=("Coolvetica", 25),
+            #     fg_color=None,
+            #     justify="center",
+            #     anchor="center"
+            # )
+            # you_may_also_like_lavel.pack(fill="both", pady=10)
 
             # force update
             self.update()
@@ -417,6 +438,17 @@ class ECHOESgui(CTk):
 
 # main loop, runs the actual desktop application
 if __name__ == "__main__":
+    # logo image files
+    icon = Image.open("images/icon.png")
+    icon.save("images/icon.ico", format="ICO")
+    logo = Image.open("images/logo.png")
+    logo_ctk = CTkImage(light_image=logo, size=(512,125))
 
     app = ECHOESgui()
     app.mainloop()
+
+    python_ta.check_all(config={
+    'extra-imports': ["tkinter", "customtkinter", "PIL", "spotipy", "threading", "webbrowser", "oauth_activation", "flask", ],  # the names (strs) of imported modules
+    'allowed-io': [],     # the names (strs) of functions that call print/open/input
+    'max-line-length': 120
+})
