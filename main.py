@@ -2,7 +2,6 @@
 CSC111 Project 2: Spotify Recommendation System - GUI Module
 This module handles the login, user data page, recommendations page and OAuth authentication.
 """
-import python_ta
 from customtkinter import *
 from PIL import Image
 import spotipy
@@ -16,26 +15,19 @@ import pandas as pd
 import os
 import random
 
+
 class ECHOESgui(CTk):
     """
     This class handles the GUI for the ECHOES application.
-
-    Instance Attributes:
-    - sp: The Spotify client instance.
-    - authenticated: Boolean indicating if the user is authenticated.
-    - seen: Dictionary to store user song data.
-    - login_tab: The login tab in the tabview.
-    - song_based_recommendations: The song-based recommendations tab in the tabview.
-    - user_based_recommendations: The user-based recommendations tab in the tabview.
-    - user_data_tab: The user data tab in the tabview.
-    - tabview: The tabview widget to handle multiple pages.
-    - LIMIT: The limit for the dataset size to reduce running time during testing.
-    - song_recommendation_features: The features used for song recommendations.
-
     """
-    def __init__(self):
+    login_required: bool
+
+    def __init__(self, login_required: bool):
         # initialize the GUI
         super().__init__()
+
+        self.login_required = login_required
+        self.user_fetched = False
 
         # setting theme and appearance
         set_appearance_mode("dark")
@@ -164,15 +156,18 @@ class ECHOESgui(CTk):
 
     def create_user_data_tab(self):
         """Create user data tab UI"""
-        self.user_data_label = CTkLabel(
-            self.user_data_tab,
-            text="Please login to view this page.",
-            text_color="white",
-            font=("Coolvetica", 40),
-            fg_color="#2FA572",
-            corner_radius=20
-        )
-        self.user_data_label.pack(pady=10)
+        if self.login_required:
+            self.user_data_label = CTkLabel(
+                self.user_data_tab,
+                text="Please login to view this page.",
+                text_color="white",
+                font=("Coolvetica", 40),
+                fg_color="#2FA572",
+                corner_radius=20
+            )
+            self.user_data_label.pack(pady=10)
+        else:
+            self.fetch_user_recommendations()
 
     def fetch_user_data(self):
         """Fetch user data from Spotify API"""
@@ -310,14 +305,16 @@ class ECHOESgui(CTk):
             assert song_recs.np.min(y_encoded) >= 0, "y should contain non-negative values"
 
             # split the data into training and testing sets (80% train, 20% test)
-            X_train, X_test, y_train, y_test = song_recs.train_test_split(X, y_encoded, test_size=0.2, random_state=4321)
+            X_train, X_test, y_train, y_test = song_recs.train_test_split(X, y_encoded, test_size=0.2,
+                                                                          random_state=4321)
 
             # initialize the decision tree
             clf = song_recs.DecisionTree(min_samples_split=2, max_depth=7)
             clf.fit(X_train, y_train)
 
             # get song recommendations
-            recommended_songs = song_recs.recommend_songs(dtree=clf, user_song=SONG, features=self.song_recommendation_features, dataset=df)
+            recommended_songs = song_recs.recommend_songs(dtree=clf, user_song=SONG,
+                                                          features=self.song_recommendation_features, dataset=df)
             recommendations_text = "\n".join(f"Song: {song} by: {artists}" for song, artists, _ in recommended_songs)
 
             song_based_recommendations_output_label = CTkLabel(
@@ -332,10 +329,11 @@ class ECHOESgui(CTk):
             )
             song_based_recommendations_output_label.pack(pady=(0, 10), fill="both")
 
-            self.update()   # force update
+            self.update()  # force update
 
         except Exception as e:
-            self.chosen_song_label.configure(text=f"Error fetching recommendations: "f"{str(e)}\nPlease try again later.")
+            self.chosen_song_label.configure(
+                text=f"Error fetching recommendations: "f"{str(e)}\nPlease try again later.")
 
     def fetch_more_user_recommendations(self):
         """Fetch additional recommendations and update the label when a user presses the
@@ -367,8 +365,8 @@ class ECHOESgui(CTk):
 
     def fetch_user_recommendations(self):
         """Fetch user-based recommendations from Spotify API"""
-        if not self.authenticated or self.sp is None:
-            self.user.based_recommendations_label.configure(text="User not authenticated. Please login.")
+        if self.login_required is True and (not self.authenticated or self.sp is None):
+            self.user_based_recommendations_label.configure(text="User not authenticated. Please login.")
             return
         try:
             self.user_based_recommendations_label.configure(text="Finding your echoes...")
@@ -527,6 +525,7 @@ class ECHOESgui(CTk):
             self.request_label.configure(text="Authentication was successful!")
             self.fetch_user_data()
             self.switch_to_user_based_recommendations()
+            self.user_fetched = True
             return
 
         # not authenticated yet, check again after a delay
@@ -556,15 +555,16 @@ class ECHOESgui(CTk):
 # main loop, runs the actual desktop application
 if __name__ == "__main__":
     # logo image files
-    
+
     icon = Image.open("images/icon.png")
     icon.save("images/icon.ico", format="ICO")
     logo = Image.open("images/logo.png")
     logo_ctk = CTkImage(light_image=logo, size=(512, 125))
 
-    app = ECHOESgui()
+    app = ECHOESgui(False)
     app.mainloop()
 
+    # import python_ta
     # python_ta.check_all(config={
     #     'extra-imports': ["tkinter", "customtkinter", "PIL", "spotipy", "threading", "webbrowser",
     #                       "oauth_activation","recommender_graph_v2", "decision_tree", "pandas", "os", "random"],
