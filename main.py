@@ -50,6 +50,10 @@ class ECHOESgui(CTk):
         self.create_song_based_recommendation_tab()
         self.create_user_based_recommendation_tab()
         self.create_user_data_tab()
+
+        self.song_recommendation_dtree = None
+        self.song_recommendation_features = ['speechiness', 'tempo', 'energy', 'loudness', 'acousticness', 'danceability', 'instrumentalness']
+        self.song_recommendation_dataset = None
     
     def create_login_tab(self):
         """Create login tab UI"""
@@ -126,9 +130,9 @@ class ECHOESgui(CTk):
 
     def fetch_user_data(self):
         """Fetch user data from Spotify API"""
-        # if not self.authenticated or self.sp is None:
-        #     self.user.data_label.configure(text="User not authenticated. Please login.")
-        #     return
+        if not self.authenticated or self.sp is None:
+            self.user_data_label.configure(text="User not authenticated. Please login.")
+            return
         try:
             self.user_data_label.configure(text="Fetching your top tracks and artists...")
             self.update()
@@ -219,9 +223,9 @@ class ECHOESgui(CTk):
 
     def fetch_song_recommendations(self):
         """Fetch song-based recommendations from Spotify API"""
-        # if not self.authenticated or self.sp is None:
-        #     self.song_based_recomendations_label.configure(text="User not authenticated. Please login.")
-        #     return
+        if not self.authenticated or self.sp is None:
+            self.song_based_recomendations_label.configure(text="User not authenticated. Please login.")
+            return
         try:
             self.song_based_recomendations_label.configure(text="Please enter a song name below.")
             self.update()
@@ -242,9 +246,9 @@ class ECHOESgui(CTk):
 
     def fetch_user_recommendations(self):
         """Fetch user-based recommendations from Spotify API"""
-        # if not self.authenticated or self.sp is None:
-        #     self.user.based_recomendations_label.configure(text="User not authenticated. Please login.")
-        #     return
+        if not self.authenticated or self.sp is None:
+            self.user.based_recomendations_label.configure(text="User not authenticated. Please login.")
+            return
         try:
             self.user_based_recommendations_label.configure(text="Finding your echoes...")
             self.update()
@@ -312,17 +316,6 @@ class ECHOESgui(CTk):
             most_similar_frame.pack(fill="x", padx=5, pady=5)
             most_similar_frame.pack_propagate(False)
 
-            # you may also like frame
-            # you_may_also_like_frame = CTkScrollableFrame(
-            #     master=main_frame,
-            #     width=520,
-            #     height=190,
-            #     corner_radius=20,
-            #     fg_color="#93D67C"
-            # )
-            # you_may_also_like_frame.pack(fill="x", padx=5, pady=5)
-            # you_may_also_like_frame.pack_propagate(False)
-
             # labels TODO: complete commands (text) for both labels
             title_label = CTkLabel(
                 master=most_similar_frame,
@@ -344,17 +337,6 @@ class ECHOESgui(CTk):
                 anchor="center"
             )
             most_similar_label.pack(fill="both", padx=10, pady=10)
-
-            # you_may_also_like_lavel = CTkLabel(
-            #     master=you_may_also_like_frame,
-            #     text="You May Also Like",
-            #     text_color="#535454",
-            #     font=("Coolvetica", 25),
-            #     fg_color=None,
-            #     justify="center",
-            #     anchor="center"
-            # )
-            # you_may_also_like_lavel.pack(fill="both", pady=10)
 
             # force update
             self.update()
@@ -397,35 +379,31 @@ class ECHOESgui(CTk):
             self.login_button.configure(text="Login", state="normal")
             self.request_label.configure(text="Login timed out. Please try again.")
             return
-        try:
-            # try to create a SpotifyOAuth instance and get a valid token
-            auth_manager = SpotifyOAuth(
-                client_id=oauth.CLIENT_ID,
-                client_secret=oauth.CLIENT_SECRET,
-                redirect_uri=oauth.REDIRECT_URI,
-                scope=oauth.SCOPE,
-                cache_path=oauth.CACHE_PATH
-            )
-            
-            token_info = auth_manager.get_cached_token()
-            
-            if token_info and not auth_manager.is_token_expired(token_info):
-                # successfully authenticated
-                self.sp = spotipy.Spotify(auth_manager=auth_manager)
-                self.authenticated = True
-                self.login_button.configure(text="Logged in.", state="disabled")
-                self.request_label.configure(text="Authentication was successful!")
-                self.fetch_user_data()
-                self.switch_to_user_based_recommendations()
-                return
-            
-            # not authenticated yet, check again after a delay
-            self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
-            
-        except Exception as e:  # TODO: check efficiency of this
-            # handle any exceptions during authentication check
-            print(f"Auth check error: {str(e)}")
-            self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
+        
+        # try to create a SpotifyOAuth instance and get a valid token
+        auth_manager = SpotifyOAuth(
+            client_id=oauth.CLIENT_ID,
+            client_secret=oauth.CLIENT_SECRET,
+            redirect_uri=oauth.REDIRECT_URI,
+            scope=oauth.SCOPE,
+            cache_path=oauth.CACHE_PATH
+        )
+        
+        token_info = auth_manager.get_cached_token()
+        
+        if token_info and not auth_manager.is_token_expired(token_info):
+            # successfully authenticated
+            self.sp = spotipy.Spotify(auth_manager=auth_manager)
+            self.authenticated = True
+            self.login_button.configure(text="Logged in.", state="disabled")
+            self.request_label.configure(text="Authentication was successful!")
+            self.fetch_user_data()
+            self.switch_to_user_based_recommendations()
+            return
+        
+        # not authenticated yet, check again after a delay
+        self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
+
 
     def switch_to_user_based_recommendations(self):
         """Switch to the user-based recommendations tab and fetch data"""
@@ -447,8 +425,8 @@ if __name__ == "__main__":
     app = ECHOESgui()
     app.mainloop()
 
-    python_ta.check_all(config={
-    'extra-imports': ["tkinter", "customtkinter", "PIL", "spotipy", "threading", "webbrowser", "oauth_activation", "flask", ],  # the names (strs) of imported modules
-    'allowed-io': [],     # the names (strs) of functions that call print/open/input
-    'max-line-length': 120
-})
+#     python_ta.check_all(config={
+#     'extra-imports': ["tkinter", "customtkinter", "PIL", "spotipy", "threading", "webbrowser", "oauth_activation", "flask", ],  # the names (strs) of imported modules
+#     'allowed-io': [],     # the names (strs) of functions that call print/open/input
+#     'max-line-length': 120
+# })

@@ -4,11 +4,10 @@ This module handles the Spotify OAuth authentication process and provides endpoi
 """
 
 import os
-from flask import Flask, session, url_for, redirect, request, jsonify
+from flask import Flask, session, url_for, redirect, request
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from typing import Optional, Dict, Any
-import webbrowser
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(64)
