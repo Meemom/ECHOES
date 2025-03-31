@@ -343,7 +343,7 @@ def _load_curr_user_songs(spotify_info: Spotify, graph: Graph) -> bool:
     return True
 
 
-def _load_hardcoded_user_songs(user_data_csv: str, graph: Graph) -> None:
+def _load_csv_user_songs(user_data_csv: str, graph: Graph) -> None:
     """
     Loads a data set of songs representing what the current user listens to.
     This is for demo purposes.
@@ -361,8 +361,8 @@ def _load_hardcoded_user_songs(user_data_csv: str, graph: Graph) -> None:
             graph.add_edge("current_user", row[0], row[1])
 
 
-def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[Spotify] = None,
-                              user_data: Optional[str] = None, limit: int = 1000000) -> Graph:
+def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[Spotify],
+                              user_data: str, limit: int = 1000000) -> Graph:
     """
     This method returns a graph based on the given data set called listening_info_file and the current user's
     profile information given by spotify_info or user_data depending on whether the authentification
@@ -374,10 +374,8 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
           user_id, artist name, song name, playlist the song is being listened to in
         - user_data is the path to a CSV file corresponding to the data set of songs the user has listened to
           with the format of comma-seperated values in this order: song name, artist name
-        - spotify_info is None == user_data is not None
     """
     graph_so_far = Graph()
-    users_so_far = set()
 
     # load songs and associated listeners
     with open(listening_info_file, 'r', newline='', encoding='utf-8') as file:
@@ -394,21 +392,18 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
                 break
 
             graph_so_far.add_song_vertex(row[2], row[1])
-
-            if row[0] not in users_so_far:
-                graph_so_far.add_user_vertex(row[0], False)
-                users_so_far.add(row[0])
+            graph_so_far.add_user_vertex(row[0], False)
 
             graph_so_far.add_edge(row[0], row[2], row[1])
             count += 1
 
-    # _load_hardcoded_user_songs(graph_so_far) if the spot_test is not working
+    # _load_csv_user_songs(graph_so_far) if the spotify_info is not working
     result = False
     if spotify_info is not None:
         result = _load_curr_user_songs(spotify_info, graph_so_far)
 
     if result is False or spotify_info is None:
-        _load_hardcoded_user_songs(user_data, graph_so_far)
+        _load_csv_user_songs(user_data, graph_so_far)
 
     # final return statement
     return graph_so_far
@@ -428,15 +423,13 @@ if __name__ == '__main__':
     auth.setup_auth_manager()
     spot_test = auth.authenticate()
 
-    if spot_test is None:
-        my_graph = load_song_listening_graph('spotify_dataset.csv', user_data="data_user.csv")
-    else:
-        my_graph = load_song_listening_graph('spotify_dataset.csv', spot_test)
+    my_graph = load_song_listening_graph('datasets/spotify_dataset.csv', spot_test,
+                                         "datasets/user_song_data.csv")
 
     import python_ta
     python_ta.check_all(config={
         'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing", "networkx"],
-        'allowed-io': ["load_song_listening_graph", "_load_hardcoded_user_songs"],
+        'allowed-io': ["load_song_listening_graph", "_load_csv_user_songs"],
         'max-line-length': 120,
         'max-nested-blocks': 4
     })
