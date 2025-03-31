@@ -145,7 +145,7 @@ def success():
             auth_url = authenticator.get_auth_url()
             return redirect(auth_url)
         
-        # Return a simple HTML page informing the user they can return to the app
+        # return a simple HTML page informing the user they can return to the app
         return """
         <!DOCTYPE html>
         <html>
@@ -155,8 +155,6 @@ def success():
 
         <p style="font-family:verdana">You may now close the window.</p>
         <p style="font-family:verdana">Hope you get some awesome song recs!</p>
-
-        <img src="images/echoes-black.png" alt="Icon for the app" width=400>
 
         </body>
         </html>
