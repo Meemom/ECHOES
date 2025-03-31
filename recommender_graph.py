@@ -57,16 +57,14 @@ class Graph:
     user_vertex_id: Optional[str]
     _user_vertices: dict[Any, _Vertex]
     _song_vertices: dict[Any, _SongVertex]
-    spotify_info: Optional[Spotify]
 
-    def __init__(self, spotify_info: Optional[Spotify] = None) -> None:
+    def __init__(self) -> None:
         """
         The initializer method for Graph
         """
         self.user_vertex_id = None
         self._song_vertices = {}
         self._user_vertices = {}
-        self.spotify_info = spotify_info
 
     def add_edge(self, username: str, song_title: str, artist: str) -> None:
         """
@@ -101,7 +99,7 @@ class Graph:
         if main_user:
             self.user_vertex_id = item
 
-    def _get_connected_users(self) -> dict[Any, list[int]]:
+    def _get_connected_users(self) -> dict[Any, int]:
         """
         This method gets all connected users who are connected with one song in between them.
 
@@ -119,7 +117,7 @@ class Graph:
         >>> graph.add_edge("user_3", "Kiss of Life", "Sade")
         >>> graph.add_edge("user_3", "Dreams", "The Cranberries")
         >>> graph.add_edge("user_3", "Let Down", "Radiohead")
-        >>> graph._get_connected_users() == {"user_2": [1, 2], "user_3": [2, 3]}
+        >>> graph._get_connected_users() == {"user_2": 1, "user_3": 2}
         True
         """
         user_vertex = self._user_vertices[self.user_vertex_id]
@@ -134,9 +132,9 @@ class Graph:
 
             for connected_user in connected_users:
                 if connected_user.item in connected_so_far:
-                    connected_so_far[connected_user.item][0] += 1
+                    connected_so_far[connected_user.item] += 1
                 else:
-                    connected_so_far[connected_user.item] = [1, len(connected_user.neighbours)]
+                    connected_so_far[connected_user.item] = 1
 
         return connected_so_far
 
@@ -179,17 +177,16 @@ class Graph:
             if (len(self._user_vertices[self.user_vertex_id].neighbours)
                     == len(self._user_vertices[user_id].neighbours)
                     and len(self._user_vertices[self.user_vertex_id].neighbours)
-                    == connected_users[user_id][0]):
+                    == connected_users[user_id]):
                 continue
             else:
-                similarity_score = connected_users[user_id][0] / connected_users[user_id][1]
-                if similarity_score > max_score_so_far:
+                if connected_users[user_id] > max_score_so_far:
                     most_similar_user = user_id
-                    max_score_so_far = similarity_score
+                    max_score_so_far = connected_users[user_id]
 
         return most_similar_user
 
-    def _get_song_recs(self, similar_user: str) -> list[list[str]]:
+    def _get_song_recs(self, similar_user: str) -> list[str]:
         """
         This method returns a set of three song ids per similar user which
         are not currently in the user's currently saved songs (neighbours)
@@ -214,29 +211,16 @@ class Graph:
         >>> graph.add_edge("user_3", "Dreams", "The Cranberries")
         >>> graph.add_edge("user_3", "Let Down", "Radiohead")
         >>> graph._get_song_recs("user_3")
-        [['Kiss of Life by Sade', '']]
+        ['Kiss of Life by Sade']
         """
         lst_so_far = []
         for song in self._user_vertices[similar_user].neighbours:
-            sublist = []
             if song not in self._user_vertices[self.user_vertex_id].neighbours:
-                sublist.append(song.item + " by " + song.artist)
-
-                if self.spotify_info is not None:
-                    results = self.spotify_info.search(q='track:' + song.item + ' artist:' + song.artist,
-                                                       type='track', limit=1)
-                    # checks to see if we get back a value
-                    if results['tracks']['items']:
-                        # gets the URL to the
-                        sublist.append(results['tracks']['items'][0]['external_urls']['spotify'])
-                else:
-                    sublist.append('')
-
-                lst_so_far.append(sublist)
+                lst_so_far.append(song.item + " by " + song.artist)
 
         return lst_so_far
 
-    def get_recommendations(self, limit: int = 5) -> list[list[str]]:
+    def get_recommendations(self, limit: int = 5) -> list[str]:
         """
         This method returns recommendations to the user based on their listened to songs.
         The method returns a list of tuples of two string: one is the song title, the other is the song url.
@@ -275,9 +259,9 @@ def _load_curr_user_songs(spotify_info: Spotify, graph: Graph) -> bool:
         return False
 
     graph.add_user_vertex("current_user", True)
-    for track_info in curr_user_tracks['items']['track']:
-        title = track_info['name']
-        artist = track_info['album']['artists'][0]['name']
+    for track_info in curr_user_tracks['items']:
+        title = track_info['track']['name']
+        artist = track_info['track']['album']['artists'][0]['name']
 
         graph.add_song_vertex(title, artist)
         graph.add_edge("current_user", title, artist)
@@ -304,7 +288,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
 
     TODO - pandas sampling
     """
-    graph_so_far = Graph(spotify_info)
+    graph_so_far = Graph()
     users_so_far = set()
 
     # load songs and associated listeners
@@ -320,7 +304,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
         for row in reader:
             # limit for testing purposes
             if limit == 500000:
-                break
+               break
 
             graph_so_far.add_song_vertex(row[2], row[1])
 
@@ -352,19 +336,19 @@ if __name__ == '__main__':
     CACHE_PATH = ".spotify_cache"
 
     # try:
-    # auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
-    # auth.setup_auth_manager()
-    # spot_test = auth.authenticate()
+    auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
+    auth.setup_auth_manager()
+    spot_test = auth.authenticate()
     # except ():
-    spot_test = None
+    # spot_test = None
 
     my_graph = load_song_listening_graph('spotify_dataset.csv', spot_test)
 
-    import python_ta
-    python_ta.check_all(config={
-        'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing",
-                          "pandas", "networkx"],
-        'allowed-io': ["load_song_listening_graph", "_load_hardcoded_user_songs"],
-        'max-line-length': 120,
-        'max-nested-blocks': 4
-    })
+    # import python_ta
+    # python_ta.check_all(config={
+    #     'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing",
+    #                       "pandas", "networkx"],
+    #     'allowed-io': ["load_song_listening_graph", "_load_hardcoded_user_songs"],
+    #     'max-line-length': 120,
+    #     'max-nested-blocks': 4
+    # })
