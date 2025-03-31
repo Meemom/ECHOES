@@ -390,8 +390,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
 
         # add each song to the graph
         for row in reader:
-            # limit for testing purposes
-            if limit == 500000:
+            if limit == 1000000:
                 break
 
             graph_so_far.add_song_vertex(row[2], row[1])
@@ -425,12 +424,9 @@ if __name__ == '__main__':
     SCOPE = "user-library-read"
     CACHE_PATH = ".spotify_cache"
 
-    # try:
     auth = oauth_activation.SpotifyAuthentication(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, SCOPE)
     auth.setup_auth_manager()
     spot_test = auth.authenticate()
-    # except ():
-    # spot_test = None
 
     if spot_test is None:
         my_graph = load_song_listening_graph('spotify_dataset.csv', user_data="data_user.csv")
