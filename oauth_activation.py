@@ -2,15 +2,12 @@
 CSC111 Project 2: Spotify Recommendation System - Oauth Activation Module
 This module handles the Spotify OAuth authentication process and provides endpoints for user data retrieval and song recommendations.
 """
-
+import python_ta
 import os
 from flask import Flask, session, url_for, redirect, request
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from typing import Optional, Dict, Any
-
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.urandom(64)
 
 # constants TODO: make sure to unify the client_id, client_secret, and redirect uri across all files
 CLIENT_ID = "f8f5475f76b6492d865574179fb39c3b"
@@ -18,6 +15,8 @@ CLIENT_SECRET = "a6eb99e6534d4625ab7f78cef37f091b"
 REDIRECT_URI = "http://localhost:5000/callback"
 SCOPE = "user-library-read user-top-read playlist-read-private"
 CACHE_PATH = ".spotify_cache"
+app = Flask(__name__)
+app.secret_key = os.urandom(64)
 
 class SpotifyAuthentication:
     """
@@ -133,6 +132,7 @@ def callback():
         print(f"Callback error: {str(e)}")
         return f"Error during authentication: {str(e)}", 500
 
+
 @app.route("/success")
 def success():
     """User data route that retrieves and displays user information."""
@@ -172,3 +172,7 @@ def logout():
 
 if __name__ == '__main__':  # run the app
     app.run(debug=True)
+    python_ta.check_all(config={
+    'extra-imports': ["typing", "spotipy", "spotipy.oauth2", "os", "flask"],
+    'max-line-length': 120
+})
