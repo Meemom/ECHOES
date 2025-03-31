@@ -1,6 +1,6 @@
 """
 CSC111 Project 2: Spotify Recommendation System - GUI Module
-This module handles the login, user data page, reccomendations page and OAuth authentication.
+This module handles the login, user data page, recomendations page and OAuth authentication.
 """
 
 import tkinter as tk
@@ -46,8 +46,8 @@ class ECHOESgui(CTk):
 
         # create tabs
         self.login_tab = self.tabview.add("Login")
-        self.song_based_reccomendations = self.tabview.add("Song-based Recommendations")
-        self.user_based_reccomendations = self.tabview.add("User-based Recommendations")
+        self.song_based_recomendations = self.tabview.add("Song-based Recommendations")
+        self.user_based_recomendations = self.tabview.add("User-based Recommendations")
         self.user_data_tab = self.tabview.add("User Data")
         self.tabview.set("Login")
 
@@ -91,30 +91,30 @@ class ECHOESgui(CTk):
             )
         self.login_button.pack(pady=25)
 
-    def create_song_based_recommendation_tab(self):   # requires an input
+    def create_song_based_recommendation_tab(self):
         """Create song based recommendation tab UI"""
         # TODO: create input field for song name
-        label = CTkLabel(
-            self.song_based_reccomendations, 
+        self.song_based_recomendations_label = CTkLabel(
+            self.song_based_recomendations, 
             text="Please login to view this page.", 
             text_color="white", 
             font=("Coolvetica", 40),
             fg_color="#2FA572",
             corner_radius=20
             )
-        label.pack(pady=165)
+        self.song_based_recomendations_label.pack(pady=10)
     
-    def create_user_based_recommendation_tab(self):  # doesnt require an input
+    def create_user_based_recommendation_tab(self):
         """Create user-based recommendation tab UI"""
-        label = CTkLabel(
-            self.user_based_reccomendations, 
+        self.user_based_recommendations_label = CTkLabel(
+            self.user_based_recomendations, 
             text="Please login to view this page.", 
             text_color="white", 
             font=("Coolvetica", 40),
             fg_color="#2FA572",
             corner_radius=20
             )
-        label.pack(pady=165)
+        self.user_based_recommendations_label.pack(pady=10)
 
     def create_user_data_tab(self):
         """Create user data tab UI"""
@@ -221,6 +221,126 @@ class ECHOESgui(CTk):
         except Exception as e:
             self.user_data_label.configure(text=f"Error fetching data: {str(e)}\nPlease try again later.")
 
+    def fetch_song_recommendations(self):
+        """Fetch song-based recommendations from Spotify API"""
+        if not self.authenticated or self.sp is None:
+            self.song_based_recomendations_label.configure(text="User not authenticated. Please login.")
+            return
+        try:
+            self.song_based_recomendations_label.configure(text="Please enter a song name below.")
+            self.update()
+
+        except Exception as e:
+            self.song_based_recomendations_label.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
+
+    def fetch_user_recommendations(self):
+        """Fetch user-based recommendations from Spotify API"""
+        if not self.authenticated or self.sp is None:
+            self.user_based_recomendations_label.configure(text="User not authenticated. Please login.")
+            return
+        try:
+            self.user_based_recommendations_label.configure(text="Finding your echoes...")
+            self.update()
+
+            # clear any existing widgets in the user_based_recomendations tab
+            for widget in self.user_based_recomendations.winfo_children():
+                widget.destroy()
+
+            # update user_based_recomendations_label with new text
+            self.user_based_recomendations_label = CTkLabel(
+                master=self.user_based_recomendations,
+                text="Your Echoes",
+                font=("Coolvetica", 25),
+                fg_color="#2FA572",
+                text_color="white",
+                corner_radius=20
+            )
+            self.user_based_recomendations_label.pack(pady=(10, 5))
+            subtitle = CTkLabel(
+                master=self.user_based_recomendations,
+                text="Based on your listening habits",
+                font=("Helvetica", 20),
+                text_color="white"
+            )
+            subtitle.pack(pady=(0, 10))
+
+            # main frame
+            main_frame = CTkScrollableFrame(
+                master=self.user_based_recomendations,
+                width=540,
+                height=400,
+                corner_radius=10,
+                fg_color="transparent",
+                border_color="#535454",
+                border_width=2
+            )
+            main_frame.pack(expand=True, fill="both", padx=10, pady=10)
+
+            # generate more button TODO: complete command
+            generate_more_button = CTkButton(
+                master=main_frame,
+                text="Give me more suggestions",
+                command=self.fetch_user_recommendations,
+                fg_color="#9E1FFF",
+                hover_color="#535454",
+                height=40,
+                width=250,
+                corner_radius=32,
+                font=("Coolvetica", 23)
+            )
+            generate_more_button.pack(pady=5)
+
+            # most similar recommendations frame
+            most_similar_frame = CTkScrollableFrame(
+                master=main_frame,
+                width=520,
+                height=190,
+                corner_radius=20,
+                fg_color="#FF82FF"
+            )
+            most_similar_frame.pack(fill="x", padx=5, pady=5)
+            most_similar_frame.pack_propagate(False)
+
+            # you may also like frame
+            you_may_also_like_frame = CTkScrollableFrame(
+                master=main_frame,
+                width=520,
+                height=190,
+                corner_radius=20,
+                fg_color="#93D67C"
+            )
+            you_may_also_like_frame.pack(fill="x", padx=5, pady=5)
+            you_may_also_like_frame.pack_propagate(False)
+
+            # labels TODO: complete commands (text) for both labels
+            most_similar_label = CTkLabel(
+                master=most_similar_frame,
+                text="Most Similar Recommendations",
+                text_color="#535454",
+                font=("Coolvetica", 25),
+                fg_color=None,
+                justify="center",
+                anchor="center"
+            )
+            most_similar_label.pack(fill="both", padx=10, pady=10)
+
+            you_may_also_like_lavel = CTkLabel(
+                master=you_may_also_like_frame,
+                text="You May Also Like",
+                text_color="#535454",
+                font=("Coolvetica", 25),
+                fg_color=None,
+                justify="center",
+                anchor="center"
+            )
+            you_may_also_like_lavel.pack(fill="both", pady=10)
+
+            # force update
+            self.update()
+
+        except Exception as e:
+            self.user_based_recomendations_label.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
+
     def start_oauth_server(self):
         """Start the Flask server for OAuth in a separate thread"""
         oauth.app.run(debug=False)
@@ -256,7 +376,6 @@ class ECHOESgui(CTk):
             self.login_button.configure(text="Login", state="normal")
             self.request_label.configure(text="Login timed out. Please try again.")
             return
-        
         try:
             # try to create a SpotifyOAuth instance and get a valid token
             auth_manager = SpotifyOAuth(
@@ -273,6 +392,9 @@ class ECHOESgui(CTk):
                 # successfully authenticated
                 self.sp = spotipy.Spotify(auth_manager=auth_manager)
                 self.authenticated = True
+                self.login_button.configure(text="Logged in.", state="disabled")
+                self.request_label.configure(text="Authentication was successful!")
+                self.fetch_user_data()
                 self.switch_to_user_based_recommendations()
                 return
             
@@ -284,27 +406,11 @@ class ECHOESgui(CTk):
             print(f"Auth check error: {str(e)}")
             self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
 
-    def switch_to_song_recommendations(self):
-        """Switch to the recommendations tab after login"""
-        if self.authenticated:
-            self.tabview.set("Song-based Recommendations")
-            self.login_button.configure(text="Logged in.", state="disabled")
-            self.request_label.configure(text="Authentication was successful!")
-
     def switch_to_user_based_recommendations(self):
         """Switch to the user-based recommendations tab and fetch data"""
         if self.authenticated:
             self.tabview.set("User-based Recommendations")
-            self.fetch_user_data()
-        else:
-            self.tabview.set("Login")
-            self.request_label.configure(text="Please login to continue.")
-    
-    def switch_to_user_data(self):
-        """Switch to the user data tab and fetch user data"""
-        if self.authenticated:
-            self.tabview.set("User Data")
-            self.fetch_user_data()
+            self.fetch_user_recommendations()
         else:
             self.tabview.set("Login")
             self.request_label.configure(text="Please login to continue.")

@@ -149,41 +149,15 @@ def success():
         return """
         <!DOCTYPE html>
         <html>
-        <head>
-            <title>ECHOES - Authentication Successful</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #121212;
-                    color: white;
-                    text-align: center;
-                    padding: 50px;
-                    margin: 0;
-                }
-                .container {
-                    max-width: 600px;
-                    margin: 0 auto;
-                    background-color: #242424;
-                    padding: 30px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-                }
-                h1 {
-                    color: #1DB954;
-                }
-                p {
-                    font-size: 16px;
-                    line-height: 1.5;
-                }
-            </style>
-        </head>
         <body>
-            <div class="container">
-                <h1>Authentication Successful!</h1>
-                <p>You have successfully authenticated with Spotify.</p>
-                <p>You can now close this window and return to the ECHOES application.</p>
-                <p><small>If the application doesn't respond, try clicking the login button again.</small></p>
-            </div>
+
+        <h1 style="font-family:verdana">Authentification Successful!</h1>
+
+        <p style="font-family:verdana">You may now close the window.</p>
+        <p style="font-family:verdana">Hope you get some awesome song recs!</p>
+
+        <img src="images/echoes-black.png" alt="Icon for the app" width=400>
+
         </body>
         </html>
         """
