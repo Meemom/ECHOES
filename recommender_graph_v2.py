@@ -428,7 +428,7 @@ if __name__ == '__main__':
 
     import python_ta
     python_ta.check_all(config={
-        'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing", "networkx"],
+        'extra-imports': ["spotipy", "oauth_activation", "__future__", "csv", "typing"],
         'allowed-io': ["load_song_listening_graph", "_load_csv_user_songs"],
         'max-line-length': 120,
         'max-nested-blocks': 4
