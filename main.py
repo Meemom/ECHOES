@@ -1,6 +1,6 @@
 """
 CSC111 Project 2: Spotify Recommendation System - GUI Module
-This module handles the login, user data page, recomendations page and OAuth authentication.
+This module handles the login, user data page, recommendations page and OAuth authentication.
 """
 import python_ta
 from customtkinter import *
@@ -10,8 +10,12 @@ import threading
 import webbrowser
 import oauth_activation as oauth
 from spotipy import SpotifyOAuth
-import recommender_graph as user_recs
+import recommender_graph_v2 as user_recs
 import updated_decision_tree as song_recs
+import pandas as pd
+import os
+import random
+import sklearn
 
 class ECHOESgui(CTk):
     """
@@ -34,6 +38,7 @@ class ECHOESgui(CTk):
         # initialize spotipy client
         self.sp = None
         self.authenticated = False
+        self.seen = {}
 
         # create tabview so it can handle multiple pages
         self.tabview = CTkTabview(self)
@@ -41,8 +46,8 @@ class ECHOESgui(CTk):
 
         # create tabs
         self.login_tab = self.tabview.add("Login")
-        self.song_based_recomendations = self.tabview.add("Song-based Recommendations")
-        self.user_based_recomendations = self.tabview.add("User-based Recommendations")
+        self.song_based_recommendations = self.tabview.add("Song-based Recommendations")
+        self.user_based_recommendations = self.tabview.add("User-based Recommendations")
         self.user_data_tab = self.tabview.add("User Data")
         self.tabview.set("Login")
 
@@ -51,6 +56,10 @@ class ECHOESgui(CTk):
         self.create_user_based_recommendation_tab()
         self.create_user_data_tab()
 
+        # clears cache after closing app
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # load decision tree model and dataset for song recommendations
         self.song_recommendation_dtree = None
         self.song_recommendation_features = ['speechiness', 'tempo', 'energy', 'loudness', 'acousticness', 'danceability', 'instrumentalness']
         self.song_recommendation_dataset = None
@@ -93,21 +102,63 @@ class ECHOESgui(CTk):
 
     def create_song_based_recommendation_tab(self):
         """Create song based recommendation tab UI"""
-        # TODO: create input field for song name
-        self.song_based_recomendations_label = CTkLabel(
-            self.song_based_recomendations, 
-            text="Please login to view this page.", 
-            text_color="white", 
-            font=("Coolvetica", 40),
-            fg_color="#2FA572",
+        self.chosen_song_label = CTkLabel(
+            self.song_based_recommendations,
+            text="Recommendations based on:",
+            text_color="white",
+            font=("Coolvetica", 20),
+            bg_color="#2FA572",
             corner_radius=20
             )
-        self.song_based_recomendations_label.pack(pady=10)
+        self.chosen_song_label.pack(pady=(10, 5))
+
+        
+        # label to display the chosen song name
+        self.display_chosen_song_label = CTkLabel(
+            self.song_based_recommendations,
+            text="",
+            text_color="#2FA572",
+            font=("Helvetica", 18, "italic")
+        )
+        self.display_chosen_song_label.pack(pady=(0, 10))
+
+        self.fetch_song_rec_button = CTkButton(
+            self.song_based_recommendations,
+            text="Get Song Recommendations",
+            command=self.fetch_song_recommendations,
+            height=40,
+            width=250,
+            corner_radius=32,
+            fg_color="#9E1FFF",
+            font=("Coolvetica", 18)
+        )
+        self.fetch_song_rec_button.pack(pady=(0, 20))
+
+        self.song_based_recommendations_output_label = CTkLabel(  # Label to display messages or recommendations
+            self.song_based_recommendations,
+            text="",
+            text_color="white",
+            font=("Helvetica", 25),
+            justify="center",
+            anchor="center"
+        )
+        self.song_based_recommendations_output_label.pack(pady=(0, 10))
+
+        self.song_recommendations_frame = CTkScrollableFrame(  # Frame to hold song recommendations
+            self.song_based_recommendations,
+            width=540,
+            height=250,
+            corner_radius=10,
+            fg_color="transparent",
+            border_color="#535454",
+            border_width=2
+        )
+        self.song_recommendations_frame.pack(expand=True, fill="both", padx=10, pady=10)
     
     def create_user_based_recommendation_tab(self):
         """Create user-based recommendation tab UI"""
         self.user_based_recommendations_label = CTkLabel(
-            self.user_based_recomendations, 
+            self.user_based_recommendations, 
             text="Please login to view this page.", 
             text_color="white", 
             font=("Coolvetica", 40),
@@ -224,56 +275,69 @@ class ECHOESgui(CTk):
     def fetch_song_recommendations(self):
         """Fetch song-based recommendations from Spotify API"""
         if not self.authenticated or self.sp is None:
-            self.song_based_recomendations_label.configure(text="User not authenticated. Please login.")
+            self.song_based_recommendations_label.configure(text="User not authenticated. Please login.")
             return
         try:
-            self.song_based_recomendations_label.configure(text="Please enter a song name below.")
-            self.update()
-
-            for widget in self.song_based_recomendations.winfo_children():
-                widget.destroy()
-
-            self.song_based_recomendations_label = CTkLabel(
-                master=self.song_based_recomendations,
-                text="Song-based Recommendations",
-                font=("Coolvetica", 25),
-                fg_color="#2FA572",
-                text_color="white",
-                corner_radius=20
-            )
+            pass
         except Exception as e:
-            self.song_based_recomendations_label.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
+            self.song_based_recommendations.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
+
+    def fetch_more_user_recommendations(self):
+        """Fetch additional recommendations and update the label when a user presses the "Give me more suggestions" button."""
+        try:
+            graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp)
+            new_recommendations = graph.get_recommendations(seen=self.seen)
+
+            # extract songs + artists then format
+            new_recommendations_text = "\n".join(
+                f"Song: {song}, Artist: {artist}"
+                for item in new_recommendations if isinstance(item, tuple) for song, artist in [item]
+            )
+
+            if not new_recommendations_text:
+                return  # if there exists no new recs, do nothing
+
+            # append new recommendations to the existing label text
+            current_text = self.most_similar_label.cget("text")
+            updated_text = f"{current_text}\n{new_recommendations_text}"
+
+            # update the suggestions label w/ the new suggestions
+            self.most_similar_label.configure(text=updated_text)
+            self.most_similar_label.update_idletasks()  # force ui update
+
+        except Exception as e:
+            print(f"Error loading more recommendations: {e}")  # print the error
 
     def fetch_user_recommendations(self):
         """Fetch user-based recommendations from Spotify API"""
         if not self.authenticated or self.sp is None:
-            self.user.based_recomendations_label.configure(text="User not authenticated. Please login.")
+            self.user.based_recommendations_label.configure(text="User not authenticated. Please login.")
             return
         try:
             self.user_based_recommendations_label.configure(text="Finding your echoes...")
             self.update()
 
-            # clear any existing widgets in the user_based_recomendations tab
-            for widget in self.user_based_recomendations.winfo_children():
+            # clear any existing widgets in the user_based_recommendations tab
+            for widget in self.user_based_recommendations.winfo_children():
                 widget.destroy()
 
             graph = user_recs.load_song_listening_graph('spotify_dataset.csv', self.sp)
-            recommendations = graph.get_recommendations()
-            recommendations_text = "\n".join(recommendations) if recommendations else "No Recommendations Found"
+            recommendations = graph.get_recommendations(seen=self.seen)
+            recommendations_text = "\n".join(f"Song: {song}, Artist: {artist}" for item in recommendations if isinstance(item, tuple) for song, artist in [item])
 
-            # update user_based_recomendations_label with new text
-            self.user_based_recomendations_label = CTkLabel(
-                master=self.user_based_recomendations,
+            # update user_based_recommendations_label with new text
+            self.user_based_recommendations_label = CTkLabel(
+                master=self.user_based_recommendations,
                 text="Your Echoes",
                 font=("Coolvetica", 25),
                 fg_color="#2FA572",
                 text_color="white",
                 corner_radius=20
             )
-            self.user_based_recomendations_label.pack(pady=(10, 5))
+            self.user_based_recommendations_label.pack(pady=(10, 5))
             subtitle = CTkLabel(
-                master=self.user_based_recomendations,
-                text="Based on your listening habits",
+                master=self.user_based_recommendations,
+                text="Based on your listening habits...",
                 font=("Helvetica", 20),
                 text_color="white"
             )
@@ -281,7 +345,7 @@ class ECHOESgui(CTk):
 
             # main frame
             main_frame = CTkScrollableFrame(
-                master=self.user_based_recomendations,
+                master=self.user_based_recommendations,
                 width=540,
                 height=400,
                 corner_radius=10,
@@ -291,11 +355,48 @@ class ECHOESgui(CTk):
             )
             main_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
-            # generate more button TODO: complete command
+            # most similar recommendations frame
+            most_similar_frame = CTkScrollableFrame(
+                master=main_frame,
+                width=520,
+                height=250,
+                corner_radius=20,
+                fg_color="#FF82FF",
+                border_width=2,
+                border_color="#535454"
+            )
+            most_similar_frame.pack(fill="x", padx=5, pady=5, expand=True)
+            most_similar_frame.pack_propagate(True)
+
+            title_label = CTkLabel(
+                master=most_similar_frame,
+                text="These are the songs that you might like",
+                text_color="#93D67C",
+                fg_color="#535454",
+                corner_radius=20,
+                font=("Coolvetica", 25, "italic"),
+                justify="center",
+                anchor="center"
+            )
+            title_label.pack(fill="both", padx=10, pady=10)
+
+            self.most_similar_label = CTkLabel(
+                master=most_similar_frame,
+                height=200,
+                text=recommendations_text,
+                text_color="#535454",
+                font=("Coolvetica", 20),
+                justify="left",
+                anchor="w",
+                wraplength=480
+            )
+            self.most_similar_label.pack(fill="both", padx=10, pady=10, expand=True)
+            
+            # generate more suggestions button 
             generate_more_button = CTkButton(
                 master=main_frame,
                 text="Give me more suggestions",
-                command=self.fetch_user_recommendations,
+                command=self.fetch_more_user_recommendations,
                 fg_color="#9E1FFF",
                 hover_color="#535454",
                 height=40,
@@ -305,44 +406,11 @@ class ECHOESgui(CTk):
             )
             generate_more_button.pack(pady=5)
 
-            # most similar recommendations frame
-            most_similar_frame = CTkScrollableFrame(
-                master=main_frame,
-                width=520,
-                height=190,
-                corner_radius=20,
-                fg_color="#FF82FF"
-            )
-            most_similar_frame.pack(fill="x", padx=5, pady=5)
-            most_similar_frame.pack_propagate(False)
-
-            # labels TODO: complete commands (text) for both labels
-            title_label = CTkLabel(
-                master=most_similar_frame,
-                text="Most Similar Songs",
-                text_color="#535454",
-                bg_color="#93D67C",
-                font=("Coolvetica", 25),
-                justify="center",
-                anchor="center"
-            )
-            title_label.pack(fill="both", padx=10, pady=10)
-
-            most_similar_label = CTkLabel(
-                master=most_similar_frame,
-                text=recommendations_text,
-                text_color="#535454",
-                font=("Coolvetica", 25),
-                justify="center",
-                anchor="center"
-            )
-            most_similar_label.pack(fill="both", padx=10, pady=10)
-
             # force update
             self.update()
 
         except Exception as e:
-            self.user_based_recomendations_label.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
+            self.user_based_recommendations_label.configure(text=f"Error fetching recommendations: {str(e)}\nPlease try again later.")
 
     def start_oauth_server(self):
         """Start the Flask server for OAuth in a separate thread"""
@@ -404,7 +472,6 @@ class ECHOESgui(CTk):
         # not authenticated yet, check again after a delay
         self.after(2000, lambda: self.check_auth_status(attempts + 1, max_attempts))
 
-
     def switch_to_user_based_recommendations(self):
         """Switch to the user-based recommendations tab and fetch data"""
         if self.authenticated:
@@ -413,6 +480,17 @@ class ECHOESgui(CTk):
         else:
             self.tabview.set("Login")
             self.request_label.configure(text="Please login to continue.")
+
+    def on_closing(self):
+        """Clear cahce and close window so that authentication works properly each run iteration."""
+        cache_path = oauth.CACHE_PATH
+        if os.path.exists(cache_path):
+            try:
+                os.remove(cache_path)
+                print(f"Cache file '{cache_path}' deleted.")
+            except OSError as e:
+                print(f"Error deleting cache file '{cache_path}': {e}")
+        self.destroy()
 
 # main loop, runs the actual desktop application
 if __name__ == "__main__":
