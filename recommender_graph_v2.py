@@ -362,7 +362,7 @@ def _load_hardcoded_user_songs(user_data_csv: str, graph: Graph) -> None:
 
 
 def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[Spotify] = None,
-                              user_data: Optional[str] = None) -> Graph:
+                              user_data: Optional[str] = None, limit: int = 1000000) -> Graph:
     """
     This method returns a graph based on the given data set called listening_info_file and the current user's
     profile information given by spotify_info or user_data depending on whether the authentification
@@ -386,11 +386,11 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
 
         # get past the headers
         next(reader)
-        limit = 0
+        count = 0
 
         # add each song to the graph
         for row in reader:
-            if limit == 1000000:
+            if count == limit:
                 break
 
             graph_so_far.add_song_vertex(row[2], row[1])
@@ -400,7 +400,7 @@ def load_song_listening_graph(listening_info_file: str, spotify_info: Optional[S
                 users_so_far.add(row[0])
 
             graph_so_far.add_edge(row[0], row[2], row[1])
-            limit += 1
+            count += 1
 
     # _load_hardcoded_user_songs(graph_so_far) if the spot_test is not working
     result = False
