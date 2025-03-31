@@ -9,6 +9,7 @@ import os
 import random
 from collections import Counter
 from typing import Any, Optional
+import python_ta
 
 # Third-Party Library imports
 import numpy as np
@@ -205,7 +206,7 @@ class DecisionTree:
 
 def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str],
                     dataset: pd.DataFrame, top_n=5) -> Optional[list[tuple]]:
-    """Recommend the top_n songs based on the cosine similarity of the given user_song using a decision tree.
+    """Recommend a similar song to the given user_song using the decision tree dtree and cosine similarity.
 
     Preconditions:
         - dtree is a trained DecisionTree object
@@ -264,8 +265,7 @@ def recommend_songs(dtree: DecisionTree, user_song: str, features: list[str],
             recommended_songs.append((song, artists, similarity))
             seen.add(song)
 
-    return recommended_songs[:top_n]
-
+    return recommended_songs
 
 def calculate_cosine_similarity(user_song_vector, song_vector) -> float:
     """Calculates the cosine similarity between the feature vectors of the user's song and a song from the dataset.
@@ -327,7 +327,6 @@ def visualize_custom_tree(node, feature_names, class_names, dot_data=None, paren
 
 def plot_tree(dtree, feature_names, class_names, filename='tree'):
     """Generate the tree visualization and save to a file."""
-    print("Current working directory:", os.getcwd())
     graph = visualize_custom_tree(dtree.root, feature_names, class_names)
     print(graph.source)
     graph.render(filename, format='png')
@@ -335,14 +334,22 @@ def plot_tree(dtree, feature_names, class_names, filename='tree'):
 
 
 if __name__ == "__main__":
+    # python_ta.check_all(config={
+    #     'extra-imports': [
+    #         'os', 'random', 'collections', 'typing', 'numpy', 'pandas',
+    #         'sklearn.model_selection', 'sklearn.metrics', 'sklearn.metrics.pairwise',
+    #         'sklearn.preprocessing', 'graphviz', 'python_ta'
+    #     ],
+    #     'allowed-io': ['plot_tree', 'recommend_songs'],
+    #     'max-line-length': 120
+    # })
+
     # define constants for the features used in the model and the dataset limit
     FEATURES = ['speechiness', 'tempo', 'energy', 'loudness', 'acousticness', 'danceability', 'instrumentalness']
-    LIMIT = 20000  # limit the dataset size to LIMIT rows to reduce running time during testing
+    LIMIT = 5000  # limit the dataset size to LIMIT rows to reduce running time during testing
 
     # DATA WRANGLING
-    df = pd.read_csv(
-        '/Users/jemimasilaen/.cache/kagglehub/datasets/bwandowando/spotify-songs-'
-        'with-attributes-and-lyrics/versions/19/songs_with_attributes_and_lyrics.csv')
+    df = pd.read_csv('path-to-file/songs_with_attributes_and_lyrics.csv')  # TODO: replace path-to-file
     df = df.dropna(subset=FEATURES)
     df = df.head(LIMIT)
 
@@ -354,7 +361,7 @@ if __name__ == "__main__":
     ARTISTS = df.iloc[random_index]['artists']
     print(f"Searching for similar songs for '{SONG}' by {ARTISTS}")
 
-    print(f"Number of rows in the dataset: {df.shape[0]}")
+    print(f"Searching through {df.shape[0]} songs...")
 
     # convert pandas DataFrame (X) and pandas Series (y) to numpy arrays
     X = df[FEATURES].to_numpy()
@@ -369,17 +376,18 @@ if __name__ == "__main__":
     assert np.min(y_encoded) >= 0, "y should contain non-negative values"
 
     # split the data into training and testing sets (80% train, 20% test)
-    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=1234)
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=1011201502)
 
     # initialize the decision tree
-    clf = DecisionTree(min_samples_split=10, max_depth=5)
+    clf = DecisionTree(min_samples_split=2, max_depth=7)
     clf.fit(X_train, y_train)
 
     # (Optional) visualize tree
     plot_tree(dtree=clf, feature_names=FEATURES, class_names=class_names, filename="song_recommendation_tree")
 
     # get song recommendations
-    recommended_songs = recommend_songs(dtree=clf, user_song=SONG, features=FEATURES, dataset=df, top_n=5)
+    # get song recommendations
+    recommended_songs = recommend_songs(dtree=clf, user_song=SONG, features=FEATURES, dataset=df)
 
     print("Recommended songs:")
     for song, artists, _ in recommended_songs:
