@@ -13,7 +13,7 @@ Built as a collaborative project, it combines **machine learning techniques** an
 ---
 
 ## Tech & Methodology
-- **Languages & Tools**: Python, Pandas, NumPy, NetworkX, Scikit-learn  
+- **Languages & Tools**: Python, Pandas, NumPy, Graphviz, Scikit-learn  
 - **Data**: Sample datasets of user song histories and preferences  
 
 ---
